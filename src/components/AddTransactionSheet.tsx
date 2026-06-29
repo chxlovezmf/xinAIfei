@@ -112,7 +112,7 @@ export default function AddTransactionSheet({ open, onClose, onSaved, editTx }: 
             animate={{ translateY: 0 }}
             exit={{ translateY: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed inset-x-0 bottom-0 z-50 rounded-t-2xl bg-white pb-8 dark:bg-gray-800"
+            className="fixed inset-x-0 bottom-0 z-50 rounded-t-2xl bg-white pb-24 dark:bg-gray-800"
           >
             {/* Header */}
             <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3 dark:border-gray-700">
@@ -175,8 +175,8 @@ export default function AddTransactionSheet({ open, onClose, onSaved, editTx }: 
                   <input
                     type="date"
                     value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    className="input-field text-center text-sm"
+                    onChange={(e) => { setDate(e.target.value); }}
+                    className="input-field text-sm"
                   />
                 </div>
 

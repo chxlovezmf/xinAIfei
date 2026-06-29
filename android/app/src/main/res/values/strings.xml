@@ -1,7 +1,7 @@
-<?xml version='1.0' encoding='utf-8'?>
+﻿<?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">记一记</string>
-    <string name="title_activity_main">记一记</string>
+    <string name="app_name">鑫菲日记</string>
+    <string name="title_activity_main">鑫菲日记</string>
     <string name="package_name">com.jiyiji.app</string>
     <string name="custom_url_scheme">com.jiyiji.app</string>
 </resources>
