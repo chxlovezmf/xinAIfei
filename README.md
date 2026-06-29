@@ -9,9 +9,9 @@ npm run build && npm run preview
 npm run dev
 ```
 
-终端会显示地址（如 `http://localhost:4173``http://localhost:5173/`），浏览器打开就能用。
+终端会显示地址（如 `http://localhost:4173或http://localhost:5173/`），浏览器打开就能用。
 
-想关掉输入 `npx kill-port 4173``ctrl+c`。浏览器还显示页面没关系，那是缓存，端口已经关了。
+想关掉输入 `npx kill-port 4173或ctrl+c`。浏览器还显示页面没关系，那是缓存，端口已经关了。
 
 ---
 
@@ -36,7 +36,7 @@ npm run build                   # 重新构建网页
 npx cap copy android            # 同步到安卓项目
 ```
 
-然后打开 Android Studio，点 `Build → Build APK`，等一会就生成新的安装包了。
+然后打开 Android Studio，先点击 `Build → Clean Project（清理缓存，确保不复用旧文件）` 再点击 `Build → Build APK`，等一会就生成新的安装包了。
 
 传到手机上安装，会提示"是否更新？"，点是就行，数据不会丢。
 
