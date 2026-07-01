@@ -1,11 +1,12 @@
 import Dexie, { type Table } from 'dexie';
-import type { Transaction, Note, Category } from '../types';
+import type { Transaction, Note, Category, Task } from '../types';
 import { presetCategories } from './categories';
 
 export class AppDatabase extends Dexie {
   transactions!: Table<Transaction, number>;
   notes!: Table<Note, number>;
   categories!: Table<Category, number>;
+  tasks!: Table<Task, number>;
 
   constructor() {
     super('jiyiji');
@@ -14,12 +15,30 @@ export class AppDatabase extends Dexie {
       notes: '++id, type, pinned, createdAt, updatedAt',
       categories: '++id, type, order',
     });
+    this.version(2).stores({
+      transactions: '++id, type, categoryId, date, createdAt',
+      notes: '++id, type, pinned, createdAt, updatedAt',
+      categories: '++id, type, order',
+      tasks: '++id, date, done, createdAt',
+    });
   }
 }
 
 export const db = new AppDatabase();
 
 // Initialize preset categories if not already present
+export async function importData(data: { transactions: any[]; notes: any[]; categories: any[] }) {
+  await db.transactions.clear();
+  await db.notes.clear();
+  await db.categories.clear();
+  if (data.transactions.length) await db.transactions.bulkAdd(data.transactions);
+  if (data.notes.length) await db.notes.bulkAdd(data.notes);
+  if (data.categories.length) await db.categories.bulkAdd(data.categories);
+  // Re-init presets if no categories were imported
+  const count = await db.categories.count();
+  if (count === 0) await initCategories();
+}
+
 export async function initCategories() {
   const count = await db.categories.count();
   if (count === 0) {
@@ -29,7 +48,6 @@ export async function initCategories() {
   }
 }
 
-// Transaction CRUD
 export async function addTransaction(tx: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>) {
   const now = new Date().toISOString();
   return db.transactions.add({
@@ -61,6 +79,14 @@ export async function getTransactionsByMonth(year: number, month: number) {
 
 export async function getAllTransactions() {
   return db.transactions.orderBy('date').reverse().toArray();
+}
+
+export async function getTransactionsByDateRange(startDate: string, endDate: string) {
+  return db.transactions
+    .where('date')
+    .between(startDate, endDate, true, true)
+    .reverse()
+    .sortBy('date');
 }
 
 // Note CRUD
@@ -104,4 +130,25 @@ export async function deleteCategory(id: number) {
 export async function getCategoryById(id: number | undefined) {
   if (!id) return null;
   return db.categories.get(id);
+}
+
+// Task CRUD
+export async function addTask(task: Omit<Task, 'id'>) {
+  return db.tasks.add(task as Task);
+}
+
+export async function updateTask(id: number, task: Partial<Task>) {
+  return db.tasks.update(id, task);
+}
+
+export async function deleteTask(id: number) {
+  return db.tasks.delete(id);
+}
+
+export async function getTasksByDate(date: string) {
+  return db.tasks.where('date').equals(date).toArray();
+}
+
+export async function getAllTasks() {
+  return db.tasks.orderBy('date').reverse().toArray();
 }

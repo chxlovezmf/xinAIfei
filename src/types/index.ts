@@ -32,4 +32,13 @@ export interface Category {
   preset: boolean;
 }
 
+export interface Task {
+  id?: number;
+  text: string;
+  done: boolean;
+  date: string; // YYYY-MM-DD
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type PageView = 'home' | 'accounting' | 'notes' | 'stats' | 'settings';

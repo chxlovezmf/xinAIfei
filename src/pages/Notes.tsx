@@ -1,44 +1,35 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Pin, PinOff, Search, StickyNote, FileText, CheckCircle2, Circle, CalendarDays, BookOpen, Trash2 } from 'lucide-react';
-import type { Note } from '../types';
-import { getAllNotes, addNote, deleteNote, updateNote } from '../db/database';
+import { Pin, PinOff, Search, StickyNote, FileText, CheckCircle2, Circle, CalendarDays, BookOpen, Trash2, Pencil, ChevronLeft, ChevronRight, Check, X } from 'lucide-react';
+import type { Note, Task as TaskType } from '../types';
+import { getAllNotes, addNote, deleteNote, updateNote, getTasksByDate, addTask as dbAddTask, updateTask as dbUpdateTask, deleteTask as dbDeleteTask } from '../db/database';
 import { formatDateTime } from '../utils/format';
 import { PageTransition } from '../components/Layout';
 import EmptyState from '../components/EmptyState';
 import { ListSkeleton } from '../components/Skeleton';
 import dayjs from 'dayjs';
 
-interface Task {
-  id: string;
-  text: string;
-  done: boolean;
-  date: string;
-  createdAt: string;
-}
-
-function loadTasks(date: string): Task[] {
-  try {
-    const data = localStorage.getItem('tasks_' + date);
-    return data ? JSON.parse(data) : [];
-  } catch { return []; }
-}
-
-function saveTasks(date: string, tasks: Task[]) {
-  localStorage.setItem('tasks_' + date, JSON.stringify(tasks));
-}
-
 export default function Notes() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'schedule' | 'diary'>('schedule');
+  const [searchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState<'schedule' | 'diary'>(() => {
+    return tabParam === 'schedule' ? 'schedule' : 'diary';
+  });
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [quickNote, setQuickNote] = useState('');
+
+  // Task state with date navigation
   const today = dayjs().format('YYYY-MM-DD');
-  const [tasks, setTasks] = useState<Task[]>(() => loadTasks(today));
+  const [taskDate, setTaskDate] = useState(today);
+  const [tasks, setTasks] = useState<TaskType[]>([]);
   const [newTask, setNewTask] = useState('');
+  const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
+  const [editingTaskText, setEditingTaskText] = useState('');
+  const [pendingTaskCount, setPendingTaskCount] = useState(0);
 
   const loadNotes = useCallback(async () => {
     setLoading(true);
@@ -49,31 +40,78 @@ export default function Notes() {
 
   useEffect(() => { loadNotes(); }, [loadNotes]);
 
-  const addTask = () => {
+  const loadTasks = useCallback(async () => {
+    const t = await getTasksByDate(taskDate);
+    setTasks(t);
+  }, [taskDate]);
+
+  useEffect(() => { loadTasks(); }, [loadTasks]);
+
+  // Load today's pending count (for badge)
+  useEffect(() => {
+    getTasksByDate(today).then(t => setPendingTaskCount(t.filter(t => !t.done).length));
+  }, [tasks, today]);
+
+  // Navigate task date
+  const prevTaskDay = () => {
+    setTaskDate(dayjs(taskDate).subtract(1, 'day').format('YYYY-MM-DD'));
+  };
+  const nextTaskDay = () => {
+    const next = dayjs(taskDate).add(1, 'day').format('YYYY-MM-DD');
+    if (next <= today) setTaskDate(next);
+  };
+
+  const taskDateStr = () => {
+    const d = dayjs(taskDate);
+    if (taskDate === today) return '今天';
+    if (taskDate === dayjs().subtract(1, 'day').format('YYYY-MM-DD')) return '昨天';
+    if (taskDate === dayjs().add(1, 'day').format('YYYY-MM-DD')) return '明天';
+    return d.format('M月D日 dddd');
+  };
+
+  const addTask = async () => {
     if (!newTask.trim()) return;
-    const task: Task = {
-      id: Date.now().toString(),
+    await dbAddTask({
       text: newTask.trim(),
       done: false,
-      date: today,
+      date: taskDate,
       createdAt: new Date().toISOString(),
-    };
-    const updated = [...tasks, task];
-    setTasks(updated);
-    saveTasks(today, updated);
+      updatedAt: new Date().toISOString(),
+    });
     setNewTask('');
+    loadTasks();
   };
 
-  const toggleTask = (id: string) => {
-    const updated = tasks.map(t => t.id === id ? { ...t, done: !t.done } : t);
-    setTasks(updated);
-    saveTasks(today, updated);
+  const toggleTask = async (task: TaskType) => {
+    if (task.id) {
+      await dbUpdateTask(task.id, { done: !task.done, updatedAt: new Date().toISOString() });
+      loadTasks();
+    }
   };
 
-  const delTask = (id: string) => {
-    const updated = tasks.filter(t => t.id !== id);
-    setTasks(updated);
-    saveTasks(today, updated);
+  const delTask = async (id: number | undefined) => {
+    if (id) {
+      await dbDeleteTask(id);
+      loadTasks();
+    }
+  };
+
+  const startEditTask = (task: TaskType) => {
+    setEditingTaskId(task.id || null);
+    setEditingTaskText(task.text);
+  };
+
+  const saveEditTask = async () => {
+    if (editingTaskId && editingTaskText.trim()) {
+      await dbUpdateTask(editingTaskId, { text: editingTaskText.trim(), updatedAt: new Date().toISOString() });
+      setEditingTaskId(null);
+      loadTasks();
+    }
+  };
+
+  const cancelEditTask = () => {
+    setEditingTaskId(null);
+    setEditingTaskText('');
   };
 
   const handleQuickNote = async () => {
@@ -104,6 +142,9 @@ export default function Notes() {
   const pinnedNotes = filteredNotes.filter((n) => n.pinned);
   const unpinnedNotes = filteredNotes.filter((n) => !n.pinned);
 
+  // Count pending tasks for today
+  const pendingCount = pendingTaskCount;
+
   return (
     <PageTransition>
       <div className="page-container">
@@ -111,7 +152,7 @@ export default function Notes() {
           <h1 className="page-title">记事</h1>
           {activeTab === 'diary' && (
             <button onClick={() => navigate('/notes/new')} className="btn-primary gap-1 py-2 px-4 text-sm">
-              <FileText size={16} />写笔记
+              <FileText size={16} />写日记
             </button>
           )}
         </div>
@@ -121,6 +162,9 @@ export default function Notes() {
             className={'flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-medium transition-all ' +
               (activeTab === 'schedule' ? 'bg-white text-gray-800 shadow-sm dark:bg-gray-700 dark:text-gray-200' : 'text-gray-500')}>
             <CalendarDays size={16} />日程
+            {pendingCount > 0 && activeTab !== 'schedule' && (
+              <span className="ml-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-400 text-[10px] text-white">{pendingCount}</span>
+            )}
           </button>
           <button onClick={() => setActiveTab('diary')}
             className={'flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-medium transition-all ' +
@@ -131,28 +175,67 @@ export default function Notes() {
 
         {activeTab === 'schedule' ? (
           <>
-            <p className="mb-3 text-xs text-gray-400">{dayjs().format('M月D日 dddd')} 的任务</p>
+            {/* Date Navigation */}
+            <div className="mb-3 flex items-center justify-between rounded-xl bg-white px-3 py-2 shadow-sm dark:bg-gray-800">
+              <button onClick={prevTaskDay} className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700">
+                <ChevronLeft size={18} />
+              </button>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                {taskDateStr()}
+                {taskDate !== today && (
+                  <button onClick={() => setTaskDate(today)} className="ml-2 text-xs text-primary-500 hover:underline">今天</button>
+                )}
+              </span>
+              <button onClick={nextTaskDay} disabled={taskDate >= today} className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 disabled:opacity-30 dark:hover:bg-gray-700">
+                <ChevronRight size={18} />
+              </button>
+            </div>
+
             <div className="flex gap-2 mb-4">
               <input type="text" value={newTask} onChange={(e) => setNewTask(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && addTask()} placeholder="添加新任务..." className="input-field flex-1 text-sm" />
               <button onClick={addTask} className="btn-primary px-4 text-sm">添加</button>
             </div>
             {tasks.length === 0 ? (
-              <EmptyState title="今天还没有任务" description="添加一个任务开始规划一天" />
+              <EmptyState title="还没有任务" description="添加一个任务开始规划吧" />
             ) : (
               <div className="space-y-1.5">
                 {tasks.map((task) => (
                   <motion.div key={task.id} layout initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}
                     className="flex items-center gap-3 rounded-xl bg-white px-3 py-2.5 shadow-sm dark:bg-gray-800">
-                    <button onClick={() => toggleTask(task.id)} className="text-gray-400 hover:text-primary-500 transition-colors">
+                    <button onClick={() => toggleTask(task)} className="text-gray-400 hover:text-primary-500 transition-colors shrink-0">
                       {task.done ? <CheckCircle2 size={20} className="text-primary-500" /> : <Circle size={20} />}
                     </button>
-                    <span className={'flex-1 text-sm ' + (task.done ? 'text-gray-400 line-through' : 'text-gray-700 dark:text-gray-300')}>
-                      {task.text}
-                    </span>
-                    <button onClick={() => delTask(task.id)} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-red-400 dark:hover:bg-gray-700">
-                      <Trash2 size={14} />
-                    </button>
+                    {editingTaskId === task.id ? (
+                      <div className="flex flex-1 items-center gap-1">
+                        <input
+                          type="text"
+                          value={editingTaskText}
+                          onChange={(e) => setEditingTaskText(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') saveEditTask(); if (e.key === 'Escape') cancelEditTask(); }}
+                          className="flex-1 rounded-lg border border-gray-200 bg-white px-2 py-1 text-sm outline-none focus:border-primary-400 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
+                          autoFocus
+                        />
+                        <button onClick={saveEditTask} className="rounded p-1 text-primary-500 hover:bg-primary-50 dark:hover:bg-gray-700">
+                          <Check size={16} />
+                        </button>
+                        <button onClick={cancelEditTask} className="rounded p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700">
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ) : (
+                      <span className={'flex-1 text-sm ' + (task.done ? 'text-gray-400 line-through' : 'text-gray-700 dark:text-gray-300')}>
+                        {task.text}
+                      </span>
+                    )}
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      <button onClick={() => startEditTask(task)} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-primary-500 dark:hover:bg-gray-700">
+                        <Pencil size={14} />
+                      </button>
+                      <button onClick={() => delTask(task.id)} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-red-400 dark:hover:bg-gray-700">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </motion.div>
                 ))}
               </div>

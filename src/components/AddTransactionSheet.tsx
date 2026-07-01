@@ -4,7 +4,6 @@ import { X } from 'lucide-react';
 import type { Category } from '../types';
 import { getCategories, addTransaction, updateTransaction } from '../db/database';
 import { getTodayStr } from '../utils/format';
-import CategoryIcon from './CategoryIcon';
 
 interface Props {
   open: boolean;
@@ -176,7 +175,7 @@ export default function AddTransactionSheet({ open, onClose, onSaved, editTx }: 
                     type="date"
                     value={date}
                     onChange={(e) => { setDate(e.target.value); }}
-                    className="input-field text-sm"
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-3 text-sm text-gray-800 outline-none transition-all duration-200 focus:border-primary-400 focus:ring-2 focus:ring-primary-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:focus:border-primary-400 [color-scheme:light] dark:[color-scheme:dark]"
                   />
                 </div>
 
@@ -187,26 +186,26 @@ export default function AddTransactionSheet({ open, onClose, onSaved, editTx }: 
                       <button
                         key={n}
                         onClick={() => handleNumberInput(String(n))}
-                        className="rounded-xl bg-gray-50 py-3 text-xl font-semibold text-gray-800 active:scale-95 active:bg-gray-200 transition-all dark:bg-gray-700 dark:text-gray-200"
+                        className="rounded-xl bg-gray-50 py-4 text-2xl font-semibold text-gray-800 active:scale-95 active:bg-gray-200 transition-all dark:bg-gray-700 dark:text-gray-200"
                       >
                         {n}
                       </button>
                     ))}
                     <button
                       onClick={() => handleNumberInput('.')}
-                      className="rounded-xl bg-gray-50 py-3 text-xl font-semibold text-gray-800 active:scale-95 active:bg-gray-200 transition-all dark:bg-gray-700 dark:text-gray-200"
+                      className="rounded-xl bg-gray-50 py-4 text-2xl font-semibold text-gray-800 active:scale-95 active:bg-gray-200 transition-all dark:bg-gray-700 dark:text-gray-200"
                     >
                       .
                     </button>
                     <button
                       onClick={() => handleNumberInput('0')}
-                      className="rounded-xl bg-gray-50 py-3 text-xl font-semibold text-gray-800 active:scale-95 active:bg-gray-200 transition-all dark:bg-gray-700 dark:text-gray-200"
+                      className="rounded-xl bg-gray-50 py-4 text-2xl font-semibold text-gray-800 active:scale-95 active:bg-gray-200 transition-all dark:bg-gray-700 dark:text-gray-200"
                     >
                       0
                     </button>
                     <button
                       onClick={() => handleNumberInput('00')}
-                      className="rounded-xl bg-gray-50 py-3 text-base font-semibold text-gray-800 active:scale-95 active:bg-gray-200 transition-all dark:bg-gray-700 dark:text-gray-200"
+                      className="rounded-xl bg-gray-50 py-4 text-2xl font-semibold text-gray-800 active:scale-95 active:bg-gray-200 transition-all dark:bg-gray-700 dark:text-gray-200"
                     >
                       00
                     </button>
@@ -250,7 +249,7 @@ export default function AddTransactionSheet({ open, onClose, onSaved, editTx }: 
                             : 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600'
                         }`}
                       >
-                        <CategoryIcon iconName={cat.icon} color={cat.color} size={22} className="p-0 bg-transparent" />
+                        <div className="h-6 w-6 rounded-full" style={{ backgroundColor: cat.color }} />
                         <span className="text-xs text-gray-600 dark:text-gray-300 text-center leading-tight">{cat.name}</span>
                       </button>
                     ))}
