@@ -53,13 +53,13 @@ export default function NoteDetail() {
     }
 
     setSaving(false);
-    navigate('/notes');
+    navigate('/notes?tab=diary');
   };
 
   const handleDelete = async () => {
     if (id && !isNew) {
       await deleteNote(Number(id));
-      navigate('/notes');
+      navigate('/notes?tab=diary');
     }
   };
 
@@ -82,12 +82,12 @@ export default function NoteDetail() {
     >
       {/* Header */}
       <div className="flex items-center justify-between border-b border-gray-100 bg-white/80 px-4 py-3 backdrop-blur-lg dark:border-gray-700 dark:bg-gray-900/80">
-        <button onClick={() => navigate('/notes')} className="flex items-center gap-1 text-gray-600 dark:text-gray-300">
+        <button onClick={() => navigate('/notes?tab=diary')} className="flex items-center gap-1 text-gray-600 dark:text-gray-300">
           <ArrowLeft size={20} />
           <span className="text-sm">返回</span>
         </button>
         <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-          {isNew ? '新笔记' : '编辑笔记'}
+          {isNew ? '写日记' : '编辑日记'}
         </span>
         <div className="flex items-center gap-2">
           {!isNew && (

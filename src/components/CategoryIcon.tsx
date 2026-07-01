@@ -17,6 +17,20 @@ export default function CategoryIcon({ iconName, color, size = 24, className = '
     'more-horizontal': 'MoreHorizontal',
     'heart-pulse': 'HeartPulse',
     'trending-up': 'TrendingUp',
+    'car': 'Car',
+    'shopping-bag': 'ShoppingBag',
+    'home': 'Home',
+    'smartphone': 'Smartphone',
+    'wallet': 'Wallet',
+    'briefcase': 'Briefcase',
+    'gift': 'Gift',
+    'circle': 'Circle',
+    'box': 'Box',
+    'tag': 'Tag',
+    'star': 'Star',
+    'heart': 'Heart',
+    'zap': 'Zap',
+    'flag': 'Flag',
   };
 
   const lucideName = nameMap[iconName] || iconName.charAt(0).toUpperCase() + iconName.slice(1).replace(/-./g, s => s[1].toUpperCase());
@@ -40,6 +54,20 @@ export function CategoryBadge({ iconName, color, name, size = 18 }: CategoryIcon
     'more-horizontal': 'MoreHorizontal',
     'heart-pulse': 'HeartPulse',
     'trending-up': 'TrendingUp',
+    'car': 'Car',
+    'shopping-bag': 'ShoppingBag',
+    'home': 'Home',
+    'smartphone': 'Smartphone',
+    'wallet': 'Wallet',
+    'briefcase': 'Briefcase',
+    'gift': 'Gift',
+    'circle': 'Circle',
+    'box': 'Box',
+    'tag': 'Tag',
+    'star': 'Star',
+    'heart': 'Heart',
+    'zap': 'Zap',
+    'flag': 'Flag',
   };
 
   const lucideName = nameMap[iconName] || iconName.charAt(0).toUpperCase() + iconName.slice(1).replace(/-./g, s => s[1].toUpperCase());
