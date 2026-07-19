@@ -20,7 +20,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-dvh flex-col bg-warm-50 dark:bg-gray-900">
-      <main className="flex-1 overflow-y-auto pb-20">
+      <main className="flex-1 overflow-y-auto">
         {children}
       </main>
       <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-100 bg-white/80 px-2 pb-2 pt-1 backdrop-blur-lg dark:border-gray-800 dark:bg-gray-900/80">
