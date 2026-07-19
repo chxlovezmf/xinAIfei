@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Sun, Moon, Database, Download, Upload, Palette, Info, HardDrive, CheckCircle, XCircle } from "lucide-react";
 import type { Category } from "../types";
 import dayjs from "dayjs";
-import { getCategories, addCategory, deleteCategory, getAllTransactions, getAllNotes, importData } from "../db/database";
+import { getCategories, addCategory, deleteCategory, updateCategory, getAllTransactions, getAllNotes, importData } from "../db/database";
 import { PageTransition } from "../components/Layout";
 import { useDarkMode } from "../hooks/useDarkMode";
 import { exportAllData, importAllData, getExportDataString, copyToClipboard, nativeExport, shareExportFile, listBackupFiles, readBackupFile, type BackupFileInfo } from "../utils/export";
@@ -26,6 +26,9 @@ export default function Settings() {
   const [pasteText, setPasteText] = useState("");
   const [showRestoreList, setShowRestoreList] = useState(false);
   const [backupFiles, setBackupFiles] = useState<BackupFileInfo[]>([]);
+  const [editCat, setEditCat] = useState<Category|null>(null);
+  const [editCatName, setEditCatName] = useState("");
+  const [editCatColor, setEditCatColor] = useState("");
   const [toast, setToast] = useState<{type:'success'|'error';message:string}|null>(null);
   const [storageSize, setStorageSize] = useState("");
   const [avatarSize, setAvatarSize] = useState("");
@@ -47,7 +50,7 @@ export default function Settings() {
     })();
   },[]);
 
-  const APP_VERSION = '1.2.0';
+  const APP_VERSION = '1.3.0';
   const DEFAULT_ABOUT_TEXT = "想把和她的一辈子都记录在这里";
   if (localStorage.getItem('aboutTextVersion')!==APP_VERSION) { localStorage.removeItem('aboutText'); localStorage.setItem('aboutTextVersion',APP_VERSION); }
   const aboutText = localStorage.getItem("aboutText")||DEFAULT_ABOUT_TEXT;
@@ -123,6 +126,18 @@ export default function Settings() {
     setCategories(await getCategories());
   };
   const handleDeleteCategory = async (id:number) => { await deleteCategory(id); setCategories(await getCategories()); };
+  const handleEditCategory = (cat: Category) => {
+    setEditCat(cat);
+    setEditCatName(cat.name);
+    setEditCatColor(cat.color);
+  };
+  const handleSaveCategoryEdit = async () => {
+    if (!editCat || !editCat.id || !editCatName.trim()) return;
+    await updateCategory(editCat.id, { name: editCatName.trim(), color: editCatColor });
+    setEditCat(null);
+    setCategories(await getCategories());
+    showToast('success','分类已更新');
+  };
 
   const expenseCats = categories.filter(c=>c.type==="expense");
   const incomeCats = categories.filter(c=>c.type==="income");
@@ -218,6 +233,7 @@ export default function Settings() {
               <div key={cat.id} className="flex items-center gap-1.5 rounded-lg bg-gray-50 px-2.5 py-1.5 dark:bg-gray-700">
                 <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{backgroundColor:cat.color}}/>
                 <span className="text-xs text-gray-700 dark:text-gray-300">{cat.name}</span>
+                <button onClick={()=>handleEditCategory(cat)} className="text-gray-400 hover:text-primary-500 ml-0.5"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
                 {!cat.preset&&<button onClick={()=>cat.id&&handleDeleteCategory(cat.id)} className="text-gray-400 hover:text-red-400 ml-0.5"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></button>}
               </div>
             ))}</div>
@@ -228,6 +244,7 @@ export default function Settings() {
               <div key={cat.id} className="flex items-center gap-1.5 rounded-lg bg-gray-50 px-2.5 py-1.5 dark:bg-gray-700">
                 <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{backgroundColor:cat.color}}/>
                 <span className="text-xs text-gray-700 dark:text-gray-300">{cat.name}</span>
+                <button onClick={()=>handleEditCategory(cat)} className="text-gray-400 hover:text-primary-500 ml-0.5"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
                 {!cat.preset&&<button onClick={()=>cat.id&&handleDeleteCategory(cat.id)} className="text-gray-400 hover:text-red-400 ml-0.5"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></button>}
               </div>
             ))}</div>
@@ -236,7 +253,7 @@ export default function Settings() {
 
         <div className="card flex items-center gap-3 cursor-pointer active:scale-[0.98] transition-transform" onClick={()=>{setShowAbout(true);setEditAbout(aboutText);setEditingAbout(false);}}>
           <div className="rounded-xl bg-gray-100 p-2 dark:bg-gray-700"><Info size={18} className="text-gray-400"/></div>
-          <div><p className="text-sm font-medium text-gray-800 dark:text-gray-200">关于鑫菲日记</p><p className="text-xs text-gray-400">版本 1.2</p></div>
+          <div><p className="text-sm font-medium text-gray-800 dark:text-gray-200">关于鑫菲日记</p><p className="text-xs text-gray-400">版本 1.3</p></div>
         </div>
 
         <AnimatePresence>{showPasteImport&&(
@@ -273,11 +290,31 @@ export default function Settings() {
           </motion.div>
         )}</AnimatePresence>
 
+        <AnimatePresence>{editCat&&(
+          <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={()=>setEditCat(null)}>
+            <motion.div initial={{scale:0.9,opacity:0}} animate={{scale:1,opacity:1}} exit={{scale:0.9,opacity:0}} className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-800" onClick={e=>e.stopPropagation()}>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-3">编辑分类</h3>
+              <p className="text-xs text-gray-400 mb-2">{editCat.preset?'预设分类':'自定义分类'} · {editCat.type==='expense'?'支出':'收入'}</p>
+              <input type="text" value={editCatName} onChange={e=>setEditCatName(e.target.value)} placeholder="分类名称" className="input-field text-sm mb-3"/>
+              <p className="mb-1 text-xs text-gray-400">选择颜色</p>
+              <div className="flex flex-wrap gap-2 mb-4">{COLOR_PALETTE.map(color=>(
+                <button key={color} onClick={()=>setEditCatColor(color)} className="h-7 w-7 rounded-full transition-all active:scale-90" style={{backgroundColor:color}}>
+                  {editCatColor===color&&<svg className="mx-auto text-white" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M20 6L9 17l-5-5"/></svg>}
+                </button>
+              ))}</div>
+              <div className="flex gap-2">
+                <button onClick={()=>setEditCat(null)} className="btn-secondary flex-1 text-sm py-2">取消</button>
+                <button onClick={handleSaveCategoryEdit} className="btn-primary flex-1 text-sm py-2" disabled={!editCatName.trim()}>保存</button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}</AnimatePresence>
+
         <AnimatePresence>{showAbout&&(
           <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={()=>setShowAbout(false)}>
             <motion.div initial={{scale:0.9,opacity:0}} animate={{scale:1,opacity:1}} exit={{scale:0.9,opacity:0}} className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-800" onClick={e=>e.stopPropagation()}>
               <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">鑫菲日记</h3>
-              <p className="text-xs text-gray-400 mb-4">版本 1.1</p>
+              <p className="text-xs text-gray-400 mb-4">版本 1.3</p>
               {editingAbout?(
                 <div>
                   <textarea value={editAbout} onChange={e=>setEditAbout(e.target.value)} className="input-field text-sm min-h-[80px] mb-2" autoFocus/>

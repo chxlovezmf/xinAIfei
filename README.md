@@ -34,6 +34,7 @@ npm run dev
 ```bash
 npm run build                   # 重新构建网页
 npx cap copy android            # 同步到安卓项目
+cd android && ./gradlew assembleDebug
 ```
 
 然后打开 Android Studio，先点击 `Build → Clean Project（清理缓存，确保不复用旧文件）` 再点击 `Build → Build APK`，等一会就生成新的安装包了。
