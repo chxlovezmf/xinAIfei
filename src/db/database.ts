@@ -77,6 +77,15 @@ export async function getTransactionsByMonth(year: number, month: number) {
     .sortBy('date');
 }
 
+export async function getTransactionsByYear(year: number) {
+  const prefix = `${year}-`;
+  return db.transactions
+    .where('date')
+    .startsWithAnyOfIgnoreCase(prefix)
+    .reverse()
+    .sortBy('date');
+}
+
 export async function getAllTransactions() {
   return db.transactions.orderBy('date').reverse().toArray();
 }
@@ -121,6 +130,10 @@ export async function getCategories() {
 
 export async function addCategory(cat: Omit<Category, 'id'>) {
   return db.categories.add(cat as Category);
+}
+
+export async function updateCategory(id: number, cat: Partial<Category>) {
+  return db.categories.update(id, cat);
 }
 
 export async function deleteCategory(id: number) {

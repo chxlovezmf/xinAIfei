@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, PointElement, LineElement, Filler } from 'chart.js';
 import { Doughnut, Bar, Line } from 'react-chartjs-2';
-import { Download, Calendar } from 'lucide-react';
+import { Download, Calendar, X } from 'lucide-react';
 import type { Transaction, Category } from '../types';
 import { getTransactionsByMonth, getCategories, getTransactionsByDateRange } from '../db/database';
 import { formatAmount, getCurrentMonth } from '../utils/format';
@@ -41,6 +41,8 @@ export default function Stats() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const chartRef = useRef<any>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -128,8 +130,11 @@ export default function Stats() {
       backgroundColor: 'rgba(20, 184, 166, 0.1)',
       fill: true,
       tension: 0.4,
-      pointRadius: 1,
+      pointRadius: dailyValues.map(v => v > 0 ? 5 : 0),
+      pointHoverRadius: 8,
       pointBackgroundColor: '#14b8a6',
+      pointBorderColor: '#fff',
+      pointBorderWidth: 2,
     }],
   };
 
@@ -147,6 +152,32 @@ export default function Stats() {
     maintainAspectRatio: false,
     plugins: {
       legend: { display: false },
+    },
+  };
+
+  const lineChartOptions = {
+    ...chartOptions,
+    onClick: (_event: any, elements: any[]) => {
+      if (elements.length > 0) {
+        const idx = elements[0].index;
+        const label = dailyLabels[idx];
+        // Parse M/D back to full date
+        const parts = label.split('/');
+        let fullDate = '';
+        if (viewMode === 'month') {
+          fullDate = `${year}-${String(month).padStart(2, '0')}-${String(parts[1]).padStart(2, '0')}`;
+        } else {
+          // For range mode, calculate from start
+          fullDate = dayjs(rangeStart).add(idx, 'day').format('YYYY-MM-DD');
+        }
+        if (dailyMap[fullDate]) {
+          setSelectedDay(fullDate);
+        }
+      }
+    },
+    scales: {
+      x: { grid: { display: false }, ticks: { font: { size: 10 }, maxTicksLimit: 31 } },
+      y: { beginAtZero: true, grid: { color: '#f0f0f0' }, ticks: { font: { size: 10 } } },
     },
   };
 
@@ -182,6 +213,10 @@ export default function Stats() {
   const periodLabel = viewMode === 'month'
     ? `${year}年${month}月`
     : `${rangeStart} ~ ${rangeEnd}`;
+
+  // Selected day transactions for the popup
+  const selectedDayTxs = selectedDay ? transactions.filter(t => t.date === selectedDay) : [];
+  const selectedDayTotal = selectedDayTxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
 
   return (
     <PageTransition>
@@ -341,16 +376,61 @@ export default function Stats() {
               transition={{ delay: 0.15 }}
               className="mb-4 rounded-2xl bg-white p-4 shadow-sm dark:bg-gray-800"
             >
-              <h3 className="mb-3 text-sm font-semibold text-gray-800 dark:text-gray-200">每日支出趋势</h3>
+              <h3 className="mb-3 text-sm font-semibold text-gray-800 dark:text-gray-200">
+                每日支出趋势
+                <span className="ml-2 text-xs font-normal text-gray-400">点击数据点查看详情</span>
+              </h3>
               <div className="h-48">
-                <Line data={lineData} options={{
-                  ...chartOptions,
-                  scales: {
-                    x: { grid: { display: false }, ticks: { font: { size: 10 }, maxTicksLimit: viewMode === 'range' ? 31 : 31 } },
-                    y: { beginAtZero: true, grid: { color: '#f0f0f0' }, ticks: { font: { size: 10 } } },
-                  },
-                }} />
+                <Line ref={chartRef} data={lineData} options={lineChartOptions} />
               </div>
+              {/* Selected day popup */}
+              {selectedDay && (
+                <div className="mt-3 rounded-xl bg-gray-50 p-3 dark:bg-gray-700">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                      {selectedDay} ({dayjs(selectedDay).format('ddd')})
+                    </span>
+                    <button onClick={() => setSelectedDay(null)} className="text-gray-400 hover:text-gray-600">
+                      <X size={16} />
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 mb-2">
+                    当日支出合计: <span className="font-semibold text-red-500">¥{formatAmount(selectedDayTotal)}</span>
+                  </p>
+                  <div className="space-y-1.5">
+                    {selectedDayTxs.filter(t => t.type === 'expense').map(tx => {
+                      const cat = catMap.get(tx.categoryId);
+                      return (
+                        <div key={tx.id} className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-1.5">
+                            <div className="h-2 w-2 rounded-full" style={{ backgroundColor: cat?.color || '#ccc' }} />
+                            <span className="text-gray-600 dark:text-gray-400">{cat?.name || '未知'}</span>
+                            {tx.note && <span className="text-gray-400 truncate max-w-[120px]">{tx.note}</span>}
+                          </div>
+                          <span className="font-medium text-red-500">-¥{formatAmount(tx.amount)}</span>
+                        </div>
+                      );
+                    })}
+                    {selectedDayTxs.filter(t => t.type === 'income').length > 0 && (
+                      <div className="pt-1.5 mt-1.5 border-t border-gray-200 dark:border-gray-600">
+                        <p className="text-xs text-gray-400 mb-1">收入</p>
+                        {selectedDayTxs.filter(t => t.type === 'income').map(tx => {
+                          const cat = catMap.get(tx.categoryId);
+                          return (
+                            <div key={tx.id} className="flex items-center justify-between text-xs">
+                              <div className="flex items-center gap-1.5">
+                                <div className="h-2 w-2 rounded-full" style={{ backgroundColor: cat?.color || '#ccc' }} />
+                                <span className="text-gray-600 dark:text-gray-400">{cat?.name || '未知'}</span>
+                              </div>
+                              <span className="font-medium text-primary-600">+¥{formatAmount(tx.amount)}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </motion.div>
 
             {/* Income vs Expense Bar */}
