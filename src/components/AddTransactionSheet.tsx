@@ -122,7 +122,7 @@ export default function AddTransactionSheet({ open, onClose, onSaved, editTx }: 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-40 bg-black/40"
+            className="fixed inset-0 z-[55] bg-black/40"
             onClick={onClose}
           />
           {/* Sheet */}
@@ -131,7 +131,7 @@ export default function AddTransactionSheet({ open, onClose, onSaved, editTx }: 
             animate={{ translateY: 0 }}
             exit={{ translateY: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-2xl bg-white dark:bg-gray-800"
+            className="fixed inset-x-0 bottom-0 z-[60] flex flex-col rounded-t-2xl bg-white dark:bg-gray-800"
             style={{ height: maxH, maxHeight: '95dvh' }}
           >
             {/* Header */}
@@ -145,8 +145,8 @@ export default function AddTransactionSheet({ open, onClose, onSaved, editTx }: 
               <div className="w-8" />
             </div>
 
-            {/* Scrollable body */}
-            <div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto px-5 pb-6">
+            {/* Body: amount step scrollable, category step flex layout */}
+            <div ref={bodyRef} className={`min-h-0 flex-1 px-5 ${step === 'category' ? 'flex flex-col overflow-hidden' : 'overflow-y-auto scrollbar-hide'}`}>
               {/* Type Toggle */}
               <div className="flex shrink-0 justify-center gap-2 py-3">
                 <button
@@ -172,7 +172,7 @@ export default function AddTransactionSheet({ open, onClose, onSaved, editTx }: 
               </div>
 
               {step === 'amount' ? (
-                <>
+                <div>
                   <div className="py-2 text-center">
                     <div className="text-4xl font-bold text-gray-900 dark:text-gray-100">
                       <span className="text-2xl mr-1">¥</span>
@@ -201,7 +201,7 @@ export default function AddTransactionSheet({ open, onClose, onSaved, editTx }: 
                     />
                   </div>
 
-                  <div className="pt-1">
+                  <div className="pt-1 pb-6">
                     <div className="grid grid-cols-4 gap-2">
                       {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
                         <button
@@ -245,10 +245,11 @@ export default function AddTransactionSheet({ open, onClose, onSaved, editTx }: 
                       下一步
                     </button>
                   </div>
-                </>
+                </div>
               ) : (
+                /* Category step: flex layout, grid scrolls, buttons anchored */
                 <>
-                  <div className="py-2 text-center">
+                  <div className="py-2 text-center shrink-0">
                     <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                       <span className="text-lg mr-1">¥</span>
                       {formattedAmount}
@@ -256,26 +257,26 @@ export default function AddTransactionSheet({ open, onClose, onSaved, editTx }: 
                     {note && <p className="mt-1 text-sm text-gray-500">{note}</p>}
                   </div>
 
-                  <div className="max-h-52 overflow-y-auto scrollbar-hide">
-                    <div className="grid grid-cols-4 gap-3">
+                  <div className="flex-1 overflow-y-auto min-h-0 scrollbar-hide">
+                    <div className="grid grid-cols-4 gap-3 pb-4">
                       {currentCategories.map((cat) => (
                         <button
                           key={cat.id}
                           onClick={() => setCategoryId(cat.id!)}
-                          className={`flex flex-col items-center gap-1.5 rounded-xl p-3 transition-all active:scale-95 ${
+                          className={`flex flex-col items-center gap-1.5 rounded-xl p-4 transition-all active:scale-95 ${
                             categoryId === cat.id
                               ? 'bg-primary-50 ring-2 ring-primary-400 dark:bg-primary-900/30'
                               : 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600'
                           }`}
                         >
-                          <div className="h-6 w-6 rounded-full" style={{ backgroundColor: cat.color }} />
-                          <span className="text-xs text-gray-600 dark:text-gray-300 text-center leading-tight">{cat.name}</span>
+                          <div className="h-7 w-7 rounded-full" style={{ backgroundColor: cat.color }} />
+                          <span className="text-sm text-gray-600 dark:text-gray-300 text-center leading-tight">{cat.name}</span>
                         </button>
                       ))}
                     </div>
                   </div>
 
-                  <div className="flex gap-3 pt-4">
+                  <div className="flex shrink-0 gap-3 py-3 pb-[60px] border-t border-gray-100 dark:border-gray-700">
                     <button onClick={() => setStep('amount')} className="btn-secondary flex-1">
                       返回修改
                     </button>

@@ -43,7 +43,7 @@
   }
 
   .page-container {
-    @apply mx-auto max-w-lg px-4 pb-24 pt-4;
+    @apply mx-auto max-w-lg px-4 pb-[72px] pt-4;
   }
 
   .page-title {
