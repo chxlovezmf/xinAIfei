@@ -125,7 +125,11 @@ export default function Settings() {
     setNewCatName(""); setNewCatColor(getRandomColor());
     setCategories(await getCategories());
   };
-  const handleDeleteCategory = async (id:number) => { await deleteCategory(id); setCategories(await getCategories()); };
+  const handleDeleteCategory = async (id:number) => {
+    if (!window.confirm('确定要删除这个分类吗？\n已有该分类的账目记录不会受影响。')) return;
+    await deleteCategory(id);
+    setCategories(await getCategories());
+  };
   const handleEditCategory = (cat: Category) => {
     setEditCat(cat);
     setEditCatName(cat.name);

@@ -257,19 +257,19 @@ export default function AddTransactionSheet({ open, onClose, onSaved, editTx }: 
                     {note && <p className="mt-1 text-sm text-gray-500">{note}</p>}
                   </div>
 
-                  <div className="flex-1 overflow-y-auto min-h-0 scrollbar-hide">
-                    <div className="grid grid-cols-4 gap-3 pb-4">
+                  <div className="flex-1 overflow-y-auto min-h-0 scrollbar-hide p-0.5">
+                    <div className="grid grid-cols-4 gap-1.5 pb-4">
                       {currentCategories.map((cat) => (
                         <button
                           key={cat.id}
                           onClick={() => setCategoryId(cat.id!)}
-                          className={`flex flex-col items-center gap-1.5 rounded-xl p-4 transition-all active:scale-95 ${
+                          className={`flex flex-col items-center gap-1 rounded-lg p-2 transition-all active:scale-95 ${
                             categoryId === cat.id
                               ? 'bg-primary-50 ring-2 ring-primary-400 dark:bg-primary-900/30'
                               : 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600'
                           }`}
                         >
-                          <div className="h-7 w-7 rounded-full" style={{ backgroundColor: cat.color }} />
+                          <div className="h-5 w-5 rounded-full" style={{ backgroundColor: cat.color }} />
                           <span className="text-sm text-gray-600 dark:text-gray-300 text-center leading-tight">{cat.name}</span>
                         </button>
                       ))}
