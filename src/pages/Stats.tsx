@@ -9,6 +9,7 @@ import { formatAmount, getCurrentMonth } from '../utils/format';
 import { exportToExcel } from '../utils/export';
 import * as XLSX from 'xlsx';
 import { PageTransition } from '../components/Layout';
+import MonthPicker from '../components/MonthPicker';
 import { CardSkeleton } from '../components/Skeleton';
 import dayjs from 'dayjs';
 
@@ -253,29 +254,7 @@ export default function Stats() {
         {/* Date Selector */}
         {viewMode === 'month' ? (
           <div className="mb-4">
-            <div className="flex items-center justify-between rounded-xl bg-white px-4 py-2.5 shadow-sm dark:bg-gray-800">
-              <button
-                onClick={() => {
-                  if (month === 1) { setYear(year - 1); setMonth(12); }
-                  else setMonth(month - 1);
-                }}
-                className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6"/></svg>
-              </button>
-              <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-                {year}年{month}月
-              </span>
-              <button
-                onClick={() => {
-                  if (month === 12) { setYear(year + 1); setMonth(1); }
-                  else setMonth(month + 1);
-                }}
-                className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
-              </button>
-            </div>
+            <MonthPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
           </div>
         ) : (
           <div className="mb-4 flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 shadow-sm dark:bg-gray-800">
@@ -342,22 +321,19 @@ export default function Stats() {
                   <Doughnut data={doughnutData} options={{
                     ...chartOptions,
                     plugins: {
-                      legend: {
-                        position: 'bottom',
-                        labels: { font: { size: 11 }, padding: 12 },
-                      },
+                      legend: { display: false },
                     },
                   }} />
                 </div>
-                {/* Details */}
-                <div className="mt-3 space-y-1.5">
+                {/* Details - Scrollable list */}
+                <div className="mt-3 max-h-48 overflow-y-auto scrollbar-thin space-y-1.5 pr-1">
                   {expenseCatData.map(d => (
                     <div key={d.id} className="flex items-center justify-between text-xs">
                       <div className="flex items-center gap-2">
-                        <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: catColorMap.get(String(d.id)) }} />
+                        <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: catColorMap.get(String(d.id)) }} />
                         <span className="text-gray-600 dark:text-gray-400">{d.cat?.name}</span>
                       </div>
-                      <span className="font-medium text-gray-800 dark:text-gray-200">
+                      <span className="font-medium text-gray-800 dark:text-gray-200 shrink-0">
                         ¥{formatAmount(d.amount)}
                         <span className="ml-1 text-gray-400">
                           ({totalExpense > 0 ? Math.round(d.amount / totalExpense * 100) : 0}%)
