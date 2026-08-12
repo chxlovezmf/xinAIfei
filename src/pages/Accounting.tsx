@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, ArrowDownUp, Pencil, Trash2 } from 'lucide-react';
+import { Plus, ArrowDownUp, Pencil, Trash2, Search } from 'lucide-react';
 import type { Transaction, Category } from '../types';
 import { getTransactionsByMonth, getTransactionsByYear, getAllTransactions, deleteTransaction, getCategories } from '../db/database';
 import { formatAmount, formatDate, getCurrentMonth } from '../utils/format';
@@ -21,11 +21,10 @@ export default function Accounting() {
   const { year: cy, month: cm } = getCurrentMonth();
   const [year, setYear] = useState(cy);
   const [month, setMonth] = useState(cm);
-  const [totalIncome, setTotalIncome] = useState(0);
-  const [totalExpense, setTotalExpense] = useState(0);
+  const [search, setSearch] = useState('');
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
+  const loadData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     const cats = await getCategories();
     setCategories(cats);
     let txs: Transaction[];
@@ -35,29 +34,39 @@ export default function Accounting() {
       txs = await getTransactionsByYear(year);
     }
     setTransactions(txs);
-    const inc = txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-    const exp = txs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-    setTotalIncome(inc);
-    setTotalExpense(exp);
-    setLoading(false);
+    if (!silent) setLoading(false);
   }, [year, month, viewMode]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const handleDelete = async (id: number) => { await deleteTransaction(id); loadData(); };
+  const handleDelete = async (id: number) => {
+    if (window.confirm('确定要删除这条记录吗？')) {
+      await deleteTransaction(id);
+      loadData(true);
+    }
+  };
   const handleEdit = (tx: Transaction) => {
     setEditTx({ id: tx.id, type: tx.type, amount: tx.amount, categoryId: tx.categoryId, date: tx.date, note: tx.note });
     setShowSheet(true);
   };
 
   const catMap = new Map(categories.map(c => [c.id!, c]));
-  const grouped = transactions.reduce<Record<string, Transaction[]>>((acc, tx) => {
+  const q = search.trim().toLowerCase();
+  const filtered = q ? transactions.filter(tx => {
+    const cat = catMap.get(tx.categoryId);
+    const nameMatch = !!cat && cat.name.toLowerCase().includes(q);
+    const noteMatch = (tx.note || '').toLowerCase().includes(q);
+    return nameMatch || noteMatch;
+  }) : transactions;
+  const grouped = filtered.reduce<Record<string, Transaction[]>>((acc, tx) => {
     const key = tx.date;
     if (!acc[key]) acc[key] = [];
     acc[key].push(tx);
     return acc;
   }, {});
   const sortedDates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+  const filteredIncome = filtered.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+  const filteredExpense = filtered.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
 
   return (
     <PageTransition>
@@ -95,16 +104,23 @@ export default function Accounting() {
           </div>
         )}
 
-        {!loading && transactions.length > 0 && (
+        <div className="relative mb-4">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="搜索备注、分类..." className="input-field pl-9" />
+        </div>
+
+        {!loading && filtered.length > 0 && (
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-4 flex gap-3">
-            <div className="flex-1 rounded-xl bg-white p-3 shadow-sm dark:bg-gray-800"><p className="text-xs text-gray-500">收入</p><p className="mt-1 text-lg font-bold text-primary-600">¥{formatAmount(totalIncome)}</p></div>
-            <div className="flex-1 rounded-xl bg-white p-3 shadow-sm dark:bg-gray-800"><p className="text-xs text-gray-500">支出</p><p className="mt-1 text-lg font-bold text-red-500">¥{formatAmount(totalExpense)}</p></div>
-            <div className="flex-1 rounded-xl bg-white p-3 shadow-sm dark:bg-gray-800"><p className="text-xs text-gray-500">结余</p><p className={`mt-1 text-lg font-bold ${totalIncome - totalExpense >= 0 ? 'text-primary-600' : 'text-red-500'}`}>¥{formatAmount(totalIncome - totalExpense)}</p></div>
+            <div className="flex-1 rounded-xl bg-white p-3 shadow-sm dark:bg-gray-800"><p className="text-xs text-gray-500">收入</p><p className="mt-1 text-lg font-bold text-primary-600">¥{formatAmount(filteredIncome)}</p></div>
+            <div className="flex-1 rounded-xl bg-white p-3 shadow-sm dark:bg-gray-800"><p className="text-xs text-gray-500">支出</p><p className="mt-1 text-lg font-bold text-red-500">¥{formatAmount(filteredExpense)}</p></div>
+            <div className="flex-1 rounded-xl bg-white p-3 shadow-sm dark:bg-gray-800"><p className="text-xs text-gray-500">结余</p><p className={`mt-1 text-lg font-bold ${filteredIncome - filteredExpense >= 0 ? 'text-primary-600' : 'text-red-500'}`}>¥{formatAmount(filteredIncome - filteredExpense)}</p></div>
           </motion.div>
         )}
 
         {loading ? <ListSkeleton count={5} /> : transactions.length === 0 ? (
           <EmptyState title="暂无记录" description="点击右下角 + 记下第一笔吧" />
+        ) : filtered.length === 0 ? (
+          <EmptyState icon={<Search size={48} />} title="没有找到匹配的记录" description="换个关键词试试" />
         ) : (
           <div className="space-y-4">
             {sortedDates.map((date) => {
@@ -156,7 +172,7 @@ export default function Accounting() {
           <Plus size={24} />
         </button>
 
-        <AddTransactionSheet open={showSheet} onClose={() => { setShowSheet(false); setEditTx(null); }} onSaved={loadData} editTx={editTx} />
+        <AddTransactionSheet open={showSheet} onClose={() => { setShowSheet(false); setEditTx(null); }} onSaved={() => loadData(true)} editTx={editTx} />
       </div>
     </PageTransition>
   );

@@ -23,7 +23,7 @@ const PRESET_BGS = [
   { key: 'orange', name: '暖阳', css: 'linear-gradient(135deg,#fb923c,#ea580c)' },
 ];
 
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.4.0';
 
 function loadCardBg(): { type: 'preset' | 'image'; value: string } {
   try { const raw = localStorage.getItem('cardBg'); if (raw) return JSON.parse(raw); } catch {}

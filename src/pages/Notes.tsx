@@ -36,6 +36,14 @@ export default function Notes() {
     const all = await getAllNotes();
     setNotes(all);
     setLoading(false);
+    const saved = sessionStorage.getItem('notesScroll');
+    if (saved) {
+      sessionStorage.removeItem('notesScroll');
+      requestAnimationFrame(() => {
+        const m = document.querySelector('main');
+        if (m) m.scrollTop = Number(saved);
+      });
+    }
   }, []);
 
   useEffect(() => { loadNotes(); }, [loadNotes]);
@@ -90,7 +98,7 @@ export default function Notes() {
   };
 
   const delTask = async (id: number | undefined) => {
-    if (id) {
+    if (id && window.confirm('确定要删除这个任务吗？')) {
       await dbDeleteTask(id);
       loadTasks();
     }
@@ -126,9 +134,17 @@ export default function Notes() {
     loadNotes();
   };
 
+  const openNote = (id: number) => {
+    const m = document.querySelector('main');
+    if (m) sessionStorage.setItem('notesScroll', String(m.scrollTop));
+    navigate('/notes/' + id);
+  };
+
   const handleDeleteNote = async (id: number) => {
-    await deleteNote(id);
-    loadNotes();
+    if (window.confirm('确定要删除这篇日记吗？')) {
+      await deleteNote(id);
+      loadNotes();
+    }
   };
 
   const filteredNotes = notes.filter((note) => {
@@ -260,14 +276,14 @@ export default function Notes() {
               <div className="space-y-2">
                 {pinnedNotes.map((note) => (
                   <NoteCard key={note.id} note={note} onPin={handleTogglePin}
-                    onDelete={() => note.id && handleDeleteNote(note.id)} onClick={() => navigate('/notes/' + note.id)} pinned />
+                    onDelete={() => note.id && handleDeleteNote(note.id)} onClick={() => note.id && openNote(note.id)} pinned />
                 ))}
                 {pinnedNotes.length > 0 && unpinnedNotes.length > 0 && (
                   <div className="border-t border-gray-100 pt-2 dark:border-gray-700" />
                 )}
                 {unpinnedNotes.map((note) => (
                   <NoteCard key={note.id} note={note} onPin={handleTogglePin}
-                    onDelete={() => note.id && handleDeleteNote(note.id)} onClick={() => navigate('/notes/' + note.id)} pinned={false} />
+                    onDelete={() => note.id && handleDeleteNote(note.id)} onClick={() => note.id && openNote(note.id)} pinned={false} />
                 ))}
               </div>
             )}

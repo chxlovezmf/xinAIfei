@@ -57,7 +57,7 @@ export default function NoteDetail() {
   };
 
   const handleDelete = async () => {
-    if (id && !isNew) {
+    if (id && !isNew && window.confirm('确定要删除这篇日记吗？')) {
       await deleteNote(Number(id));
       navigate('/notes?tab=diary');
     }

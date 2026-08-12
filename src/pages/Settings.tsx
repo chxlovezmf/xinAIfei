@@ -9,9 +9,8 @@ import { PageTransition } from "../components/Layout";
 import { useDarkMode } from "../hooks/useDarkMode";
 import { exportAllData, importAllData, getExportDataString, copyToClipboard, nativeExport, shareExportFile, listBackupFiles, readBackupFile, type BackupFileInfo } from "../utils/export";
 
-const COLOR_PALETTE = ['#ef4444','#f97316','#f59e0b','#eab308','#22c55e','#10b981','#14b8a6','#06b6d4','#3b82f6','#6366f1','#8b5cf6','#a855f7','#ec4899','#f43f5e','#78716c','#6b7280'];
+const DEFAULT_CATEGORY_COLOR = '#14b8a6';
 const GENERIC_ICONS = ['more-horizontal','circle','box','tag','star','heart','zap','flag'];
-function getRandomColor(): string { return COLOR_PALETTE[Math.floor(Math.random()*COLOR_PALETTE.length)]; }
 function getRandomIcon(): string { return GENERIC_ICONS[Math.floor(Math.random()*GENERIC_ICONS.length)]; }
 
 export default function Settings() {
@@ -19,7 +18,7 @@ export default function Settings() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [newCatName, setNewCatName] = useState("");
   const [newCatType, setNewCatType] = useState<"expense"|"income">("expense");
-  const [newCatColor, setNewCatColor] = useState(getRandomColor());
+  const [newCatColor, setNewCatColor] = useState(DEFAULT_CATEGORY_COLOR);
   const [importStatus, setImportStatus] = useState("");
   const [showAbout, setShowAbout] = useState(false);
   const [showPasteImport, setShowPasteImport] = useState(false);
@@ -50,7 +49,7 @@ export default function Settings() {
     })();
   },[]);
 
-  const APP_VERSION = '1.3.0';
+  const APP_VERSION = '1.4.0';
   const DEFAULT_ABOUT_TEXT = "想把和她的一辈子都记录在这里";
   if (localStorage.getItem('aboutTextVersion')!==APP_VERSION) { localStorage.removeItem('aboutText'); localStorage.setItem('aboutTextVersion',APP_VERSION); }
   const aboutText = localStorage.getItem("aboutText")||DEFAULT_ABOUT_TEXT;
@@ -122,7 +121,7 @@ export default function Settings() {
   const handleAddCategory = async () => {
     if(!newCatName.trim()) return;
     await addCategory({name:newCatName.trim(),type:newCatType,icon:getRandomIcon(),color:newCatColor,order:99,preset:false});
-    setNewCatName(""); setNewCatColor(getRandomColor());
+    setNewCatName(""); setNewCatColor(DEFAULT_CATEGORY_COLOR);
     setCategories(await getCategories());
   };
   const handleDeleteCategory = async (id:number) => {
@@ -224,11 +223,14 @@ export default function Settings() {
             </div>
             <div>
               <p className="mb-1 text-xs text-gray-400">选择颜色</p>
-              <div className="flex flex-wrap gap-2">{COLOR_PALETTE.map(color=>(
-                <button key={color} onClick={()=>setNewCatColor(color)} className="h-6 w-6 rounded-full transition-all active:scale-90" style={{backgroundColor:color}}>
-                  {newCatColor===color&&<svg className="mx-auto text-white" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M20 6L9 17l-5-5"/></svg>}
-                </button>
-              ))}</div>
+              <div className="flex items-center gap-2">
+                <label className="relative flex h-8 w-8 cursor-pointer items-center justify-center overflow-hidden rounded-full shadow-sm transition-all active:scale-90" style={{ backgroundColor: newCatColor }}>
+                  <input type="color" value={newCatColor} onChange={e => setNewCatColor(e.target.value)} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" />
+                  <svg className="text-white" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M20 6L9 17l-5-5"/></svg>
+                </label>
+                <span className="text-xs text-gray-500 font-mono">{newCatColor}</span>
+                <button onClick={() => setNewCatColor(DEFAULT_CATEGORY_COLOR)} className="ml-1 rounded-lg bg-gray-100 px-2 py-1 text-xs text-gray-500 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600">重置</button>
+              </div>
             </div>
           </div>
           <div className="mb-2">
@@ -257,7 +259,7 @@ export default function Settings() {
 
         <div className="card flex items-center gap-3 cursor-pointer active:scale-[0.98] transition-transform" onClick={()=>{setShowAbout(true);setEditAbout(aboutText);setEditingAbout(false);}}>
           <div className="rounded-xl bg-gray-100 p-2 dark:bg-gray-700"><Info size={18} className="text-gray-400"/></div>
-          <div><p className="text-sm font-medium text-gray-800 dark:text-gray-200">关于鑫菲日记</p><p className="text-xs text-gray-400">版本 1.3</p></div>
+          <div><p className="text-sm font-medium text-gray-800 dark:text-gray-200">关于鑫菲日记</p><p className="text-xs text-gray-400">版本 1.4</p></div>
         </div>
 
         <AnimatePresence>{showPasteImport&&(
@@ -301,11 +303,14 @@ export default function Settings() {
               <p className="text-xs text-gray-400 mb-2">{editCat.preset?'预设分类':'自定义分类'} · {editCat.type==='expense'?'支出':'收入'}</p>
               <input type="text" value={editCatName} onChange={e=>setEditCatName(e.target.value)} placeholder="分类名称" className="input-field text-sm mb-3"/>
               <p className="mb-1 text-xs text-gray-400">选择颜色</p>
-              <div className="flex flex-wrap gap-2 mb-4">{COLOR_PALETTE.map(color=>(
-                <button key={color} onClick={()=>setEditCatColor(color)} className="h-7 w-7 rounded-full transition-all active:scale-90" style={{backgroundColor:color}}>
-                  {editCatColor===color&&<svg className="mx-auto text-white" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M20 6L9 17l-5-5"/></svg>}
-                </button>
-              ))}</div>
+              <div className="flex items-center gap-2 mb-4">
+                <label className="relative flex h-8 w-8 cursor-pointer items-center justify-center overflow-hidden rounded-full shadow-sm transition-all active:scale-90" style={{ backgroundColor: editCatColor }}>
+                  <input type="color" value={editCatColor} onChange={e => setEditCatColor(e.target.value)} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" />
+                  <svg className="text-white" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M20 6L9 17l-5-5"/></svg>
+                </label>
+                <span className="text-xs text-gray-500 font-mono">{editCatColor}</span>
+                <button onClick={() => setEditCatColor(editCat.color)} className="ml-1 rounded-lg bg-gray-100 px-2 py-1 text-xs text-gray-500 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600">重置</button>
+              </div>
               <div className="flex gap-2">
                 <button onClick={()=>setEditCat(null)} className="btn-secondary flex-1 text-sm py-2">取消</button>
                 <button onClick={handleSaveCategoryEdit} className="btn-primary flex-1 text-sm py-2" disabled={!editCatName.trim()}>保存</button>
@@ -318,7 +323,7 @@ export default function Settings() {
           <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={()=>setShowAbout(false)}>
             <motion.div initial={{scale:0.9,opacity:0}} animate={{scale:1,opacity:1}} exit={{scale:0.9,opacity:0}} className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-800" onClick={e=>e.stopPropagation()}>
               <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">鑫菲日记</h3>
-              <p className="text-xs text-gray-400 mb-4">版本 1.3</p>
+              <p className="text-xs text-gray-400 mb-4">版本 1.4</p>
               {editingAbout?(
                 <div>
                   <textarea value={editAbout} onChange={e=>setEditAbout(e.target.value)} className="input-field text-sm min-h-[80px] mb-2" autoFocus/>
