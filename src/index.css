@@ -21,23 +21,23 @@
 
 @layer components {
   .btn-primary {
-    @apply inline-flex items-center justify-center rounded-xl bg-primary-500 px-5 py-3
+    @apply inline-flex items-center justify-center rounded-full bg-primary-500 px-5 py-3
       text-sm font-medium text-white shadow-sm transition-all duration-200
       active:scale-95 hover:bg-primary-600;
   }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center rounded-xl bg-white px-5 py-3
+    @apply inline-flex items-center justify-center rounded-full bg-white px-5 py-3
       text-sm font-medium text-gray-700 shadow-sm border border-gray-200
       transition-all duration-200 active:scale-95 hover:bg-gray-50;
   }
 
   .card {
-    @apply rounded-2xl bg-white p-4 shadow-sm border border-gray-100;
+    @apply rounded-3xl bg-white p-4 shadow-sm border border-gray-100;
   }
 
   .input-field {
-    @apply w-full rounded-xl border border-gray-200 bg-white px-4 py-3
+    @apply w-full rounded-2xl border border-gray-200 bg-white px-4 py-3
       text-base text-gray-800 placeholder-gray-400 outline-none
       transition-all duration-200 focus:border-primary-400 focus:ring-2 focus:ring-primary-100;
   }
@@ -48,6 +48,63 @@
 
   .page-title {
     @apply text-xl font-bold text-gray-900;
+  }
+
+  /* --- 奶油半透明卡片：视觉接近玻璃，但避免 backdrop-blur 的移动端合成开销 --- */
+  .glass-card {
+    @apply rounded-3xl border border-white/70 bg-white/80 shadow-[0_6px_24px_rgba(251,94,141,0.10)];
+  }
+  .dark .glass-card {
+    @apply border-white/10 bg-gray-900/80 shadow-[0_8px_32px_rgba(0,0,0,0.35)];
+  }
+
+  /* --- 多彩渐变卡片（柔和糖果色，可爱手账风）--- */
+  .grad-card {
+    background-size: 200% 200%;
+    @apply rounded-3xl text-white shadow-lg;
+  }
+  .grad-primary {
+    background-image: linear-gradient(135deg, #ff9dbf, #ec3d72);
+  }
+  .grad-teal {
+    background-image: linear-gradient(135deg, #2dd4bf, #0f766e);
+  }
+  .grad-purple {
+    background-image: linear-gradient(135deg, #c084fc, #8b5cf6);
+  }
+  .grad-rose {
+    background-image: linear-gradient(135deg, #fb7185, #e11d48);
+  }
+  .grad-blue {
+    background-image: linear-gradient(135deg, #60a5fa, #2563eb);
+  }
+  .grad-amber {
+    background-image: linear-gradient(135deg, #fbbf24, #f97316);
+  }
+  .grad-emerald {
+    background-image: linear-gradient(135deg, #34d399, #059669);
+  }
+  .grad-indigo {
+    background-image: linear-gradient(135deg, #818cf8, #4f46e5);
+  }
+  .grad-pink {
+    background-image: linear-gradient(135deg, #f472b6, #db2777);
+  }
+  .grad-orange {
+    background-image: linear-gradient(135deg, #fdba74, #ea580c);
+  }
+  .grad-animated {
+    animation: gradient-shift 8s ease infinite;
+  }
+
+  /* 蜜桃渐变文字 */
+  .grad-text {
+    background-image: linear-gradient(120deg, #fb5e8d, #c084fc, #fbbf24);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: gradient-shift 8s ease infinite;
   }
 
   .dark .card {
@@ -94,5 +151,109 @@
   }
   .dark .scrollbar-thin::-webkit-scrollbar-thumb {
     background-color: #4b5563;
+  }
+}
+
+/* 手账纸质感：奶油底 + 淡圆点 + 温柔光斑 */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(251, 94, 141, 0.06), transparent 45%),
+    radial-gradient(circle at 80% 10%, rgba(192, 132, 252, 0.07), transparent 45%),
+    radial-gradient(circle at 60% 80%, rgba(251, 191, 36, 0.05), transparent 45%),
+    radial-gradient(circle at 10% 85%, rgba(45, 212, 191, 0.05), transparent 45%);
+}
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background-image: radial-gradient(rgba(251, 94, 141, 0.08) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+.dark body::before,
+.dark body::after {
+  opacity: 0.35;
+}
+
+/* 氛围背景：光斑与粒子 */
+.ambient-orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(60px);
+  pointer-events: none;
+  opacity: 0.5;
+}
+.dark .ambient-orb {
+  opacity: 0.25;
+}
+
+.ambient-particle {
+  position: absolute;
+  border-radius: 9999px;
+  background: rgba(251, 94, 141, 0.4);
+  pointer-events: none;
+  animation: float 8s ease-in-out infinite;
+}
+.dark .ambient-particle {
+  background: rgba(251, 191, 36, 0.3);
+}
+
+@media (max-width: 640px) {
+  .ambient-orb,
+  .ambient-particle {
+    display: none;
+  }
+
+  .grad-animated,
+  .grad-text {
+    animation: none;
+  }
+}
+
+/* 骨架屏扫光 */
+.shimmer-block {
+  position: relative;
+  overflow: hidden;
+  background: rgba(148, 163, 184, 0.15);
+}
+.shimmer-block::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+  animation: shimmer 1.8s infinite;
+}
+.dark .shimmer-block {
+  background: rgba(71, 85, 105, 0.25);
+}
+.dark .shimmer-block::after {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+}
+
+/* 可爱贴纸装饰：圆角大贴纸感 */
+.sticker-emoji {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  filter: drop-shadow(0 2px 4px rgba(251, 94, 141, 0.15));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ambient-orb,
+  .ambient-particle,
+  .grad-animated,
+  .grad-text,
+  .animate-float,
+  .animate-float-slow,
+  .animate-pulse-glow {
+    animation: none !important;
   }
 }

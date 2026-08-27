@@ -7,23 +7,25 @@ import { getTransactionsByMonth, getAllNotes } from '../db/database';
 import { formatAmount, getCurrentMonth } from '../utils/format';
 import { PageTransition } from '../components/Layout';
 import AddTransactionSheet from '../components/AddTransactionSheet';
+import AnimatedNumber from '../components/AnimatedNumber';
+import FloatingActionButton from '../components/FloatingActionButton';
 import { ListSkeleton, CardSkeleton } from '../components/Skeleton';
 import dayjs from 'dayjs';
 
 const PRESET_BGS = [
-  { key: 'teal', name: '青绿', css: 'linear-gradient(135deg,#14b8a6,#0f766e)' },
-  { key: 'purple', name: '紫韵', css: 'linear-gradient(135deg,#a855f7,#7e22ce)' },
-  { key: 'rose', name: '玫瑰', css: 'linear-gradient(135deg,#f43f5e,#be123c)' },
-  { key: 'blue', name: '海蓝', css: 'linear-gradient(135deg,#3b82f6,#1d4ed8)' },
-  { key: 'amber', name: '落日', css: 'linear-gradient(135deg,#f59e0b,#d97706)' },
-  { key: 'emerald', name: '翠绿', css: 'linear-gradient(135deg,#10b981,#047857)' },
-  { key: 'indigo', name: '靛青', css: 'linear-gradient(135deg,#6366f1,#4338ca)' },
-  { key: 'pink', name: '粉黛', css: 'linear-gradient(135deg,#ec4899,#be185d)' },
+  { key: 'teal', name: '青绿', css: 'linear-gradient(135deg,#2dd4bf,#0f766e)' },
+  { key: 'purple', name: '紫韵', css: 'linear-gradient(135deg,#c084fc,#8b5cf6)' },
+  { key: 'rose', name: '玫瑰', css: 'linear-gradient(135deg,#fb7185,#e11d48)' },
+  { key: 'blue', name: '海蓝', css: 'linear-gradient(135deg,#60a5fa,#2563eb)' },
+  { key: 'amber', name: '落日', css: 'linear-gradient(135deg,#fbbf24,#f97316)' },
+  { key: 'emerald', name: '翠绿', css: 'linear-gradient(135deg,#34d399,#059669)' },
+  { key: 'indigo', name: '靛青', css: 'linear-gradient(135deg,#818cf8,#4f46e5)' },
+  { key: 'pink', name: '粉黛', css: 'linear-gradient(135deg,#f472b6,#db2777)' },
   { key: 'slate', name: '星空', css: 'linear-gradient(135deg,#334155,#0f172a)' },
-  { key: 'orange', name: '暖阳', css: 'linear-gradient(135deg,#fb923c,#ea580c)' },
+  { key: 'orange', name: '暖阳', css: 'linear-gradient(135deg,#fdba74,#ea580c)' },
 ];
 
-const APP_VERSION = '1.4.0';
+const APP_VERSION = '1.4.1';
 
 function loadCardBg(): { type: 'preset' | 'image'; value: string } {
   try { const raw = localStorage.getItem('cardBg'); if (raw) return JSON.parse(raw); } catch {}
@@ -33,7 +35,7 @@ function loadCardBg(): { type: 'preset' | 'image'; value: string } {
 function resolveBgCss(bg: { type: 'preset' | 'image'; value: string }): string {
   if (bg.type === 'image') return "url('" + bg.value + "') center/cover no-repeat";
   const found = PRESET_BGS.find(b => b.key === bg.value);
-  return found ? found.css : 'linear-gradient(135deg,#14b8a6,#0f766e)';
+  return found ? found.css : 'linear-gradient(135deg,#2dd4bf,#0f766e)';
 }
 
 function compressImage(dataUrl: string, maxW: number, maxH: number, quality: number): Promise<string> {
@@ -122,23 +124,29 @@ export default function Home() {
       <div className="page-container">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100">鑫菲日记</h1>
+            <h1 className="flex items-center gap-1.5 text-lg font-bold text-gray-900 dark:text-gray-100"><span className="sticker-emoji text-base">📓</span>鑫菲日记</h1>
             <p className="text-xs text-gray-400">{dayjs().format('M月D日 dddd')}</p>
           </div>
-          <button onClick={() => fileInputRef.current?.click()}
-            className="group relative h-10 w-10 overflow-hidden rounded-full bg-primary-100 hover:bg-primary-200 transition-all dark:bg-primary-900/30">
-            {avatarSrc ? <img src={avatarSrc} alt="头像" className="h-full w-full object-cover" />
-              : <div className="flex h-full w-full items-center justify-center text-primary-600 font-bold text-sm dark:text-primary-400">记</div>}
-            <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-all"><Camera size={14} className="text-white opacity-0 group-hover:opacity-100" /></div>
-          </button>
+          <div className="rounded-full bg-gradient-to-r from-primary-400 via-purple-400 to-pink-400 p-[2px] shadow-sm">
+            <button onClick={() => fileInputRef.current?.click()}
+              className="group relative block h-10 w-10 overflow-hidden rounded-full bg-primary-100 transition-all dark:bg-primary-900/30">
+              {avatarSrc ? <img src={avatarSrc} alt="头像" className="h-full w-full object-cover" />
+                : <div className="flex h-full w-full items-center justify-center text-primary-600 font-bold text-sm dark:text-primary-400">记</div>}
+              <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-all"><Camera size={14} className="text-white opacity-0 group-hover:opacity-100" /></div>
+            </button>
+          </div>
           <input ref={fileInputRef} type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
         </div>
 
         {loading ? <div className="space-y-4"><CardSkeleton /><ListSkeleton count={3} /></div> : (
           <>
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-              className="relative mb-5 overflow-hidden rounded-2xl p-5 text-white shadow-lg" style={{ background: resolveBgCss(cardBg) }}>
+              className="relative mb-5 overflow-hidden rounded-3xl p-5 text-white shadow-lg" style={{ background: resolveBgCss(cardBg) }}>
               {cardBg.type === 'image' && <div className="absolute inset-0 bg-black/40" />}
+              <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/25 blur-2xl" />
+              <div className="absolute -bottom-12 -left-8 h-32 w-32 rounded-full bg-white/15 blur-2xl" />
+              <span className="absolute right-14 top-3 text-xl animate-float" style={{ animationDuration: '5s' }}>💖</span>
+              <span className="absolute bottom-16 left-4 text-lg animate-float" style={{ animationDuration: '7s', animationDelay: '1s' }}>✨</span>
               <div className="relative z-10">
                 {editingTitle ? (
                   <input type="text" value={cardTitle} onChange={e => setCardTitle(e.target.value)}
@@ -147,26 +155,28 @@ export default function Home() {
                 ) : (
                   <p className="text-sm text-primary-100 cursor-pointer hover:text-white transition-colors" onClick={() => setEditingTitle(true)} title="点击编辑标题">{cardTitle}</p>
                 )}
-                <p className="mt-1 text-3xl font-bold">{monthIncome - monthExpense >= 0 ? '' : '-'}{formatAmount(Math.abs(monthIncome - monthExpense))}</p>
-                <div className="mt-4 flex gap-4">
-                  <div className="flex items-center gap-1.5">
-                    <div className="rounded-full bg-white/20 p-1"><TrendingUp size={14} /></div>
-                    <div><p className="text-xs text-primary-100">收入</p><p className="text-sm font-semibold">{formatAmount(monthIncome)}</p></div>
+                <p className="mt-1 text-3xl font-bold tracking-tight">
+                  {monthIncome - monthExpense >= 0 ? '' : '-'}<AnimatedNumber value={Math.abs(monthIncome - monthExpense)} format={formatAmount} />
+                </p>
+                <div className="mt-4 flex gap-3">
+                  <div className="flex items-center gap-1.5 rounded-2xl bg-white/20 px-3 py-1.5">
+                    <div className="rounded-full bg-white/25 p-1"><TrendingUp size={14} /></div>
+                    <div><p className="text-[11px] text-primary-100">收入</p><p className="text-sm font-semibold"><AnimatedNumber value={monthIncome} format={formatAmount} /></p></div>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="rounded-full bg-white/20 p-1"><TrendingDown size={14} /></div>
-                    <div><p className="text-xs text-primary-100">支出</p><p className="text-sm font-semibold">{formatAmount(monthExpense)}</p></div>
+                  <div className="flex items-center gap-1.5 rounded-2xl bg-white/20 px-3 py-1.5">
+                    <div className="rounded-full bg-white/25 p-1"><TrendingDown size={14} /></div>
+                    <div><p className="text-[11px] text-primary-100">支出</p><p className="text-sm font-semibold"><AnimatedNumber value={monthExpense} format={formatAmount} /></p></div>
                   </div>
                 </div>
-                <div className="mt-3 border-t border-white/20 pt-3">
+                <div className="mt-3 border-t border-white/25 pt-3">
                   <div className="flex justify-between text-xs text-primary-100">
-                    <span>今日支出 <strong className="text-white">{formatAmount(todayExpense)}</strong></span>
-                    <span>今日收入 <strong className="text-white">{formatAmount(todayIncome)}</strong></span>
+                    <span>今日支出 <strong className="text-white"><AnimatedNumber value={todayExpense} format={formatAmount} /></strong></span>
+                    <span>今日收入 <strong className="text-white"><AnimatedNumber value={todayIncome} format={formatAmount} /></strong></span>
                   </div>
                 </div>
               </div>
               <button onClick={e => { e.stopPropagation(); setShowBgPicker(true); }}
-                className="absolute top-3 right-3 z-20 rounded-full bg-white/20 p-1.5 text-white/80 backdrop-blur-sm hover:bg-white/30 hover:text-white transition-all" title="更换背景"><Image size={14} /></button>
+                className="absolute top-3 right-3 z-20 rounded-full bg-white/25 p-1.5 text-white/90 hover:bg-white/35 hover:text-white transition-all" title="更换背景"><Image size={14} /></button>
             </motion.div>
 
             <AnimatePresence>{showBgPicker && (
@@ -192,49 +202,58 @@ export default function Home() {
             )}</AnimatePresence>
 
             <div className="mb-5 flex gap-3">
-              <button onClick={() => setShowSheet(true)} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-white py-3 shadow-sm text-sm font-medium text-gray-700 active:scale-95 dark:bg-gray-800 dark:text-gray-300"><Plus size={18} className="text-primary-500" />记一笔</button>
-              <button onClick={() => navigate('/notes')} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-white py-3 shadow-sm text-sm font-medium text-gray-700 active:scale-95 dark:bg-gray-800 dark:text-gray-300"><StickyNote size={18} className="text-amber-500" />随手记</button>
+              <motion.button whileTap={{ scale: 0.95 }} onClick={() => setShowSheet(true)}
+                className="glass-card flex flex-1 items-center justify-center gap-2 py-3 text-sm font-medium text-gray-700 dark:text-gray-200">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-primary-400 to-primary-600 text-white"><Plus size={14} /></span>记一笔
+              </motion.button>
+              <motion.button whileTap={{ scale: 0.95 }} onClick={() => navigate('/notes')}
+                className="glass-card flex flex-1 items-center justify-center gap-2 py-3 text-sm font-medium text-gray-700 dark:text-gray-200">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-white"><StickyNote size={14} /></span>随手记
+              </motion.button>
             </div>
 
             <div className="mb-5">
               <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-200">最近账目</h2>
+                <h2 className="flex items-center gap-1.5 text-sm font-bold text-gray-800 dark:text-gray-200"><span className="sticker-emoji text-sm">🧾</span>最近账目</h2>
                 <button onClick={() => navigate('/accounting')} className="flex items-center gap-0.5 text-xs text-primary-500">查看全部 <ArrowRight size={14} /></button>
               </div>
               {recentTxs.length === 0 ? <p className="text-center text-sm text-gray-400 py-6">还没有账目记录</p> : (
-                <div className="space-y-1.5">{recentTxs.map(tx => (
-                  <div key={tx.id} className="flex items-center justify-between rounded-xl bg-white px-3 py-2.5 shadow-sm dark:bg-gray-800">
-                    <div className="flex items-center gap-2">
-                      <div className={"h-2 w-2 rounded-full " + (tx.type === 'expense' ? 'bg-red-400' : 'bg-primary-400')} />
-                      <span className="text-xs text-gray-500">{tx.note || tx.date.slice(5)}</span>
-                    </div>
-                    <span className={"text-sm font-semibold " + (tx.type === 'expense' ? 'text-red-500' : 'text-primary-600')}>{tx.type === 'expense' ? '-' : '+'}{formatAmount(tx.amount)}</span>
-                  </div>
-                ))}</div>
+                <motion.div initial="hidden" animate="show" variants={{ show: { transition: { staggerChildren: 0.06 } } }} className="space-y-1.5">
+                  {recentTxs.map(tx => (
+                    <motion.div key={tx.id} variants={{ hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } } }}
+                      whileHover={{ scale: 1.01, x: 2 }} className="glass-card flex items-center justify-between px-3 py-2.5">
+                      <div className="flex items-center gap-2">
+                        <div className={"h-2 w-2 rounded-full " + (tx.type === 'expense' ? 'bg-red-400' : 'bg-primary-400')} />
+                        <span className="text-xs text-gray-500">{tx.note || tx.date.slice(5)}</span>
+                      </div>
+                      <span className={"text-sm font-semibold " + (tx.type === 'expense' ? 'text-red-500' : 'text-primary-600')}>{tx.type === 'expense' ? '-' : '+'}{formatAmount(tx.amount)}</span>
+                    </motion.div>
+                  ))}
+                </motion.div>
               )}
             </div>
 
             <div>
               <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-200">最近记事</h2>
+                <h2 className="flex items-center gap-1.5 text-sm font-bold text-gray-800 dark:text-gray-200"><span className="sticker-emoji text-sm">📖</span>最近记事</h2>
                 <button onClick={() => navigate('/notes')} className="flex items-center gap-0.5 text-xs text-primary-500">查看全部 <ArrowRight size={14} /></button>
               </div>
               {notes.length === 0 ? <p className="text-center text-sm text-gray-400 py-6">还没有笔记</p> : (
-                <div className="space-y-1.5">{notes.map(note => (
-                  <div key={note.id} className="rounded-xl bg-white px-3 py-2.5 shadow-sm dark:bg-gray-800">
-                    <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-1">{note.title || note.content}</p>
-                    <p className="mt-0.5 text-xs text-gray-400">{dayjs(note.updatedAt).format('M/D HH:mm')}</p>
-                  </div>
-                ))}</div>
+                <motion.div initial="hidden" animate="show" variants={{ show: { transition: { staggerChildren: 0.06 } } }} className="space-y-1.5">
+                  {notes.map(note => (
+                    <motion.div key={note.id} variants={{ hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } } }}
+                      className="glass-card px-3 py-2.5">
+                      <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-1">{note.title || note.content}</p>
+                      <p className="mt-0.5 text-xs text-gray-400">{dayjs(note.updatedAt).format('M/D HH:mm')}</p>
+                    </motion.div>
+                  ))}
+                </motion.div>
               )}
             </div>
           </>
         )}
 
-        <button onClick={() => setShowSheet(true)}
-          className="fixed bottom-20 right-5 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-primary-500 text-white shadow-lg active:scale-90 transition-transform">
-          <Plus size={24} />
-        </button>
+        <FloatingActionButton icon={<Plus size={24} />} onClick={() => setShowSheet(true)} gradient="primary" />
         <AddTransactionSheet open={showSheet} onClose={() => setShowSheet(false)} onSaved={loadData} editTx={null} />
       </div>
     </PageTransition>

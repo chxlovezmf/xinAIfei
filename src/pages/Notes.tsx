@@ -165,7 +165,7 @@ export default function Notes() {
     <PageTransition>
       <div className="page-container">
         <div className="mb-4 flex items-center justify-between">
-          <h1 className="page-title">记事</h1>
+          <h1 className="flex items-center gap-1.5 page-title"><span className="sticker-emoji text-base">📔</span>记事</h1>
           {activeTab === 'diary' && (
             <button onClick={() => navigate('/notes/new')} className="btn-primary gap-1 py-2 px-4 text-sm">
               <FileText size={16} />写日记
@@ -173,38 +173,44 @@ export default function Notes() {
           )}
         </div>
 
-        <div className="mb-4 flex gap-1 rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
+        <div className="mb-4 flex gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-gray-800/80">
           <button onClick={() => setActiveTab('schedule')}
-            className={'flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-medium transition-all ' +
-              (activeTab === 'schedule' ? 'bg-white text-gray-800 shadow-sm dark:bg-gray-700 dark:text-gray-200' : 'text-gray-500')}>
-            <CalendarDays size={16} />日程
+            className={'relative flex-1 flex items-center justify-center gap-1.5 rounded-full py-2 text-sm font-medium transition-all ' +
+              (activeTab === 'schedule' ? 'text-gray-800 dark:text-gray-200' : 'text-gray-500')}>
+            {activeTab === 'schedule' && (
+              <motion.div layoutId="notes-tab-pill" className="absolute inset-0 rounded-full bg-white shadow-sm dark:bg-gray-700" transition={{ type: 'spring', stiffness: 400, damping: 30 }} />
+            )}
+            <span className="relative flex items-center gap-1.5"><CalendarDays size={16} />日程
             {pendingCount > 0 && activeTab !== 'schedule' && (
               <span className="ml-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-400 text-[10px] text-white">{pendingCount}</span>
-            )}
+            )}</span>
           </button>
           <button onClick={() => setActiveTab('diary')}
-            className={'flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-medium transition-all ' +
-              (activeTab === 'diary' ? 'bg-white text-gray-800 shadow-sm dark:bg-gray-700 dark:text-gray-200' : 'text-gray-500')}>
-            <BookOpen size={16} />日记
+            className={'relative flex-1 flex items-center justify-center gap-1.5 rounded-full py-2 text-sm font-medium transition-all ' +
+              (activeTab === 'diary' ? 'text-gray-800 dark:text-gray-200' : 'text-gray-500')}>
+            {activeTab === 'diary' && (
+              <motion.div layoutId="notes-tab-pill" className="absolute inset-0 rounded-full bg-white shadow-sm dark:bg-gray-700" transition={{ type: 'spring', stiffness: 400, damping: 30 }} />
+            )}
+            <span className="relative flex items-center gap-1.5"><BookOpen size={16} />日记</span>
           </button>
         </div>
 
         {activeTab === 'schedule' ? (
           <>
             {/* Date Navigation */}
-            <div className="mb-3 flex items-center justify-between rounded-xl bg-white px-3 py-2 shadow-sm dark:bg-gray-800">
-              <button onClick={prevTaskDay} className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700">
+            <div className="glass-card mb-3 flex items-center justify-between px-3 py-2">
+              <motion.button whileTap={{ scale: 0.85 }} onClick={prevTaskDay} className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700">
                 <ChevronLeft size={18} />
-              </button>
+              </motion.button>
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 {taskDateStr()}
                 {taskDate !== today && (
                   <button onClick={() => setTaskDate(today)} className="ml-2 text-xs text-primary-500 hover:underline">今天</button>
                 )}
               </span>
-              <button onClick={nextTaskDay} disabled={taskDate >= today} className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 disabled:opacity-30 dark:hover:bg-gray-700">
+              <motion.button whileTap={{ scale: 0.85 }} onClick={nextTaskDay} disabled={taskDate >= today} className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 disabled:opacity-30 dark:hover:bg-gray-700">
                 <ChevronRight size={18} />
-              </button>
+              </motion.button>
             </div>
 
             <div className="flex gap-2 mb-4">
@@ -216,12 +222,18 @@ export default function Notes() {
               <EmptyState title="还没有任务" description="添加一个任务开始规划吧" />
             ) : (
               <div className="space-y-1.5">
-                {tasks.map((task) => (
-                  <motion.div key={task.id} layout initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}
-                    className="flex items-center gap-3 rounded-xl bg-white px-3 py-2.5 shadow-sm dark:bg-gray-800">
-                    <button onClick={() => toggleTask(task)} className="text-gray-400 hover:text-primary-500 transition-colors shrink-0">
-                      {task.done ? <CheckCircle2 size={20} className="text-primary-500" /> : <Circle size={20} />}
-                    </button>
+                {tasks.map((task, i) => (
+                  <motion.div key={task.id} layout
+                    initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04, type: 'spring', stiffness: 300, damping: 24 }}
+                    className="glass-card flex items-center gap-3 px-3 py-2.5">
+                    <motion.button whileTap={{ scale: 0.75 }} onClick={() => toggleTask(task)}
+                      className="text-gray-400 hover:text-primary-500 transition-colors shrink-0">
+                      {task.done ? (
+                        <motion.div key="done" initial={{ scale: 0.5 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 500, damping: 15 }}>
+                          <CheckCircle2 size={20} className="text-primary-500" />
+                        </motion.div>
+                      ) : <Circle size={20} />}
+                    </motion.button>
                     {editingTaskId === task.id ? (
                       <div className="flex flex-1 items-center gap-1">
                         <input
@@ -297,7 +309,9 @@ export default function Notes() {
 function NoteCard({ note, onPin, onDelete, onClick, pinned }: any) {
   return (
     <motion.div layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-      className="card cursor-pointer active:scale-[0.98] transition-transform" onClick={onClick}>
+      whileHover={{ scale: 1.01, x: 2 }}
+      className={'glass-card cursor-pointer px-4 py-3 ' + (pinned ? 'relative overflow-hidden' : '')} onClick={onClick}>
+      {pinned && <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-amber-400 via-primary-400 to-purple-400" />}
       <div className="flex-1 min-w-0">
         {note.type === 'long' && note.title && (
           <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{note.title}</h3>
@@ -307,12 +321,12 @@ function NoteCard({ note, onPin, onDelete, onClick, pinned }: any) {
       <div className="mt-1.5 flex items-center justify-between">
         <span className="text-xs text-gray-400">{formatDateTime(note.updatedAt)}</span>
         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-          <button onClick={() => onPin(note)} className="rounded p-1 text-gray-400 hover:text-amber-500 hover:bg-gray-100 dark:hover:bg-gray-700">
+          <motion.button whileTap={{ scale: 0.8 }} onClick={() => onPin(note)} className="rounded p-1 text-gray-400 hover:text-amber-500 hover:bg-gray-100 dark:hover:bg-gray-700">
             {pinned ? <PinOff size={14} /> : <Pin size={14} />}
-          </button>
-          <button onClick={onDelete} className="rounded p-1 text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-700">
+          </motion.button>
+          <motion.button whileTap={{ scale: 0.8 }} onClick={onDelete} className="rounded p-1 text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-700">
             <Trash2 size={14} />
-          </button>
+          </motion.button>
         </div>
       </div>
     </motion.div>

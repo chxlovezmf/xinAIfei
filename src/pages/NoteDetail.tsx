@@ -81,7 +81,8 @@ export default function NoteDetail() {
       className="flex min-h-dvh flex-col bg-warm-50 dark:bg-gray-900"
     >
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-100 bg-white/80 px-4 py-3 backdrop-blur-lg dark:border-gray-700 dark:bg-gray-900/80">
+      <div className="glass-card flex items-center justify-between border-b border-gray-100/60 px-4 py-3 dark:border-gray-700/60"
+        style={{ borderRadius: 0 }}>
         <button onClick={() => navigate('/notes?tab=diary')} className="flex items-center gap-1 text-gray-600 dark:text-gray-300">
           <ArrowLeft size={20} />
           <span className="text-sm">返回</span>

@@ -7,6 +7,8 @@ import { formatAmount, formatDate, getCurrentMonth } from '../utils/format';
 import { PageTransition } from '../components/Layout';
 import MonthPicker from '../components/MonthPicker';
 import AddTransactionSheet from '../components/AddTransactionSheet';
+import AnimatedNumber from '../components/AnimatedNumber';
+import FloatingActionButton from '../components/FloatingActionButton';
 import EmptyState from '../components/EmptyState';
 import { ListSkeleton } from '../components/Skeleton';
 import dayjs from 'dayjs';
@@ -72,7 +74,7 @@ export default function Accounting() {
     <PageTransition>
       <div className="page-container">
         <div className="mb-4 flex items-center justify-between">
-          <h1 className="page-title">记账</h1>
+          <h1 className="flex items-center gap-1.5 page-title"><span className="sticker-emoji text-base">💰</span>记账</h1>
           <button
             onClick={() => setViewMode(viewMode === 'month' ? 'year' : 'month')}
             className="rounded-lg bg-white p-2 text-gray-500 shadow-sm dark:bg-gray-800"
@@ -86,20 +88,23 @@ export default function Accounting() {
           <div className="mb-4"><MonthPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} /></div>
         ) : (
           <div className="mb-4">
-            <div className="flex items-center justify-between rounded-xl bg-white px-4 py-2.5 shadow-sm dark:bg-gray-800">
-              <button
+            <div className="glass-card flex items-center justify-between px-4 py-2.5">
+              <motion.button
+                whileTap={{ scale: 0.88 }}
                 onClick={() => setYear(year - 1)}
                 className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6"/></svg>
-              </button>
-              <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{year}年</span>
-              <button
+              </motion.button>
+              <motion.span key={year} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                className="text-sm font-semibold text-gray-800 dark:text-gray-200">{year}年</motion.span>
+              <motion.button
+                whileTap={{ scale: 0.88 }}
                 onClick={() => setYear(year + 1)}
                 className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
-              </button>
+              </motion.button>
             </div>
           </div>
         )}
@@ -111,9 +116,18 @@ export default function Accounting() {
 
         {!loading && filtered.length > 0 && (
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-4 flex gap-3">
-            <div className="flex-1 rounded-xl bg-white p-3 shadow-sm dark:bg-gray-800"><p className="text-xs text-gray-500">收入</p><p className="mt-1 text-lg font-bold text-primary-600">¥{formatAmount(filteredIncome)}</p></div>
-            <div className="flex-1 rounded-xl bg-white p-3 shadow-sm dark:bg-gray-800"><p className="text-xs text-gray-500">支出</p><p className="mt-1 text-lg font-bold text-red-500">¥{formatAmount(filteredExpense)}</p></div>
-            <div className="flex-1 rounded-xl bg-white p-3 shadow-sm dark:bg-gray-800"><p className="text-xs text-gray-500">结余</p><p className={`mt-1 text-lg font-bold ${filteredIncome - filteredExpense >= 0 ? 'text-primary-600' : 'text-red-500'}`}>¥{formatAmount(filteredIncome - filteredExpense)}</p></div>
+            <div className="grad-card grad-teal grad-animated flex-1 p-3">
+              <p className="text-xs text-primary-100">收入</p>
+              <p className="mt-1 text-lg font-bold"><AnimatedNumber value={filteredIncome} format={formatAmount} /></p>
+            </div>
+            <div className="grad-card grad-rose grad-animated flex-1 p-3">
+              <p className="text-xs text-red-100">支出</p>
+              <p className="mt-1 text-lg font-bold"><AnimatedNumber value={filteredExpense} format={formatAmount} /></p>
+            </div>
+            <div className="grad-card grad-indigo grad-animated flex-1 p-3">
+              <p className="text-xs text-indigo-100">结余</p>
+              <p className={"mt-1 text-lg font-bold " + (filteredIncome - filteredExpense >= 0 ? '' : '')}><AnimatedNumber value={filteredIncome - filteredExpense} format={formatAmount} /></p>
+            </div>
           </motion.div>
         )}
 
@@ -140,8 +154,8 @@ export default function Accounting() {
                   {grouped[date].map((tx) => {
                     const cat = catMap.get(tx.categoryId);
                     return (
-                      <motion.div key={tx.id} layout initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
-                        className="flex items-center justify-between rounded-xl bg-white px-3 py-2.5 shadow-sm dark:bg-gray-800">
+                      <motion.div key={tx.id} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }}
+                        className="glass-card flex items-center justify-between px-3 py-2.5">
                         <div className="flex items-center gap-3">
                           {cat && (
                             <div className="flex items-center gap-1.5">
@@ -155,8 +169,8 @@ export default function Accounting() {
                             {tx.type==='expense'?'-':'+'}¥{formatAmount(tx.amount)}
                           </span>
                           {tx.note && <span className="max-w-[100px] truncate text-xs text-gray-400">{tx.note}</span>}
-                          <button onClick={() => handleEdit(tx)} className="rounded p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"><Pencil size={14}/></button>
-                          <button onClick={() => handleDelete(tx.id!)} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-red-400 dark:hover:bg-gray-700"><Trash2 size={14}/></button>
+                          <button onClick={() => handleEdit(tx)} className="rounded-full bg-gray-100/80 p-1.5 text-gray-400 hover:bg-primary-100 hover:text-primary-500 dark:bg-gray-700/80 dark:hover:bg-gray-600"><Pencil size={14}/></button>
+                          <button onClick={() => handleDelete(tx.id!)} className="rounded-full bg-gray-100/80 p-1.5 text-gray-400 hover:bg-red-100 hover:text-red-400 dark:bg-gray-700/80 dark:hover:bg-gray-600"><Trash2 size={14}/></button>
                         </div>
                       </motion.div>
                     );
@@ -167,10 +181,7 @@ export default function Accounting() {
           </div>
         )}
 
-        <button onClick={() => { setEditTx(null); setShowSheet(true); }}
-          className="fixed bottom-20 right-5 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-primary-500 text-white shadow-lg active:scale-90 transition-transform">
-          <Plus size={24} />
-        </button>
+        <FloatingActionButton icon={<Plus size={24} />} onClick={() => { setEditTx(null); setShowSheet(true); }} gradient="primary" />
 
         <AddTransactionSheet open={showSheet} onClose={() => { setShowSheet(false); setEditTx(null); }} onSaved={() => loadData(true)} editTx={editTx} />
       </div>

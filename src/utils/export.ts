@@ -1,4 +1,3 @@
-import * as XLSX from 'xlsx';
 import type { Transaction, Category } from '../types';
 import dayjs from 'dayjs';
 import { Filesystem, Directory } from '@capacitor/filesystem';
@@ -24,7 +23,8 @@ function fallbackDownload(blob: Blob, fileName: string) {
   setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
 }
 
-export function exportToExcel(transactions: Transaction[], categories: Category[], year: number, month: number) {
+export async function exportToExcel(transactions: Transaction[], categories: Category[], year: number, month: number) {
+  const XLSX = await import('xlsx');
   const catMap = new Map(categories.map(c => [c.id!, c]));
   const data = transactions.map(tx => {
     const cat = catMap.get(tx.categoryId);
@@ -109,19 +109,26 @@ function fallbackCopy(text: string, resolve: (v: boolean) => void) {
   } catch { resolve(false); }
 }
 
-export function getExportDataString(transactions: Transaction[], notes: any[], categories: Category[]) {
-  return JSON.stringify({ version: '1.0', exportedAt: new Date().toISOString(), transactions, notes, categories }, null, 2);
+export function getExportDataString(transactions: Transaction[], notes: any[], categories: Category[], balance?: any) {
+  return JSON.stringify({ version: '1.1', exportedAt: new Date().toISOString(), transactions, notes, categories, balance: balance || null }, null, 2);
 }
 
-export function exportAllData(transactions: Transaction[], notes: any[], categories: Category[]) {
-  const data = { version: '1.0', exportedAt: new Date().toISOString(), transactions, notes, categories };
+export function exportAllData(transactions: Transaction[], notes: any[], categories: Category[], balance?: any) {
+  const data = { version: '1.1', exportedAt: new Date().toISOString(), transactions, notes, categories, balance: balance || null };
   downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), `记一记_数据备份_${dayjs().format('YYYYMMDD')}.json`);
 }
 
-export function importAllData(jsonStr: string): { transactions: any[]; notes: any[]; categories: any[] } | null {
+export interface ImportData {
+  transactions: any[];
+  notes: any[];
+  categories: any[];
+  balance?: any;
+}
+
+export function importAllData(jsonStr: string): ImportData | null {
   try {
     const data = JSON.parse(jsonStr);
-    if (data.version === '1.0') return { transactions: data.transactions || [], notes: data.notes || [], categories: data.categories || [] };
+    if (data.version === '1.0' || data.version === '1.1') return { transactions: data.transactions || [], notes: data.notes || [], categories: data.categories || [], balance: data.balance || null };
     return null;
   } catch { return null; }
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X } from 'lucide-react';
+import { X, Delete, RotateCcw } from 'lucide-react';
 import type { Category } from '../types';
 import { getCategories, addTransaction, updateTransaction } from '../db/database';
 import { getTodayStr } from '../utils/format';
@@ -22,6 +22,7 @@ interface Props {
 export default function AddTransactionSheet({ open, onClose, onSaved, editTx }: Props) {
   const [type, setType] = useState<'income' | 'expense'>('expense');
   const [amount, setAmount] = useState('');
+  const [expression, setExpression] = useState('');
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [date, setDate] = useState(getTodayStr());
   const [note, setNote] = useState('');
@@ -51,6 +52,7 @@ export default function AddTransactionSheet({ open, onClose, onSaved, editTx }: 
       if (editTx) {
         setType(editTx.type);
         setAmount(String(editTx.amount));
+        setExpression(String(editTx.amount));
         setCategoryId(editTx.categoryId);
         setDate(editTx.date);
         setNote(editTx.note);
@@ -58,6 +60,7 @@ export default function AddTransactionSheet({ open, onClose, onSaved, editTx }: 
       } else {
         setType('expense');
         setAmount('');
+        setExpression('');
         setCategoryId(null);
         setDate(getTodayStr());
         setNote('');
@@ -77,22 +80,71 @@ export default function AddTransactionSheet({ open, onClose, onSaved, editTx }: 
   const incomeCategories = categories.filter((c) => c.type === 'income');
   const currentCategories = type === 'expense' ? expenseCategories : incomeCategories;
 
-  const handleNumberInput = (key: string) => {
-    if (key === 'backspace') {
-      setAmount((prev) => prev.slice(0, -1));
-    } else if (key === '.') {
-      if (!amount.includes('.')) {
-        if (amount === '') setAmount('0.');
-        else setAmount((prev) => prev + '.');
+  const evaluateExpression = (value: string): number | null => {
+    const normalized = value.replace(/×/g, '*').replace(/÷/g, '/');
+    if (!normalized || !/^[0-9+\-*/.]+$/.test(normalized) || /[+\-*/.]$/.test(normalized)) return null;
+    const tokens = normalized.match(/\d+(?:\.\d+)?|[+\-*/]/g);
+    if (!tokens || tokens.join('') !== normalized || tokens[0].match(/[+*/]/)) return null;
+    const values: number[] = [];
+    const operators: string[] = [];
+    const precedence: Record<string, number> = { '+': 1, '-': 1, '*': 2, '/': 2 };
+    const apply = () => {
+      const operator = operators.pop();
+      const right = values.pop();
+      const left = values.pop();
+      if (!operator || left === undefined || right === undefined || (operator === '/' && right === 0)) return false;
+      values.push(operator === '+' ? left + right : operator === '-' ? left - right : operator === '*' ? left * right : left / right);
+      return true;
+    };
+    for (const token of tokens) {
+      if (/^\d/.test(token)) values.push(Number(token));
+      else {
+        while (operators.length && precedence[operators[operators.length - 1]] >= precedence[token] && !apply()) return null;
+        operators.push(token);
       }
-    } else if (key === '00') {
-      if (amount !== '' && amount !== '0') setAmount((prev) => prev + '00');
-    } else {
-      const newAmount = amount + key;
-      if (newAmount.startsWith('0') && !newAmount.startsWith('0.') && newAmount !== '0') return;
-      const parts = newAmount.split('.');
-      if (parts.length < 2 || parts[1].length <= 2) setAmount(newAmount);
     }
+    while (operators.length && !apply()) return null;
+    const result = values.length === 1 ? values[0] : null;
+    return result !== null && Number.isFinite(result) ? Math.round(result * 100) / 100 : null;
+  };
+
+  const handleCalculatorKey = (key: string) => {
+    if (key === 'clear') {
+      setExpression('');
+      setAmount('');
+      return;
+    }
+    if (key === 'backspace') {
+      const next = expression.slice(0, -1);
+      setExpression(next);
+      setAmount(evaluateExpression(next)?.toString() || '');
+      return;
+    }
+    if (key === '=') {
+      const result = evaluateExpression(expression);
+      if (result !== null) {
+        setAmount(String(result));
+        setExpression(String(result));
+      }
+      return;
+    }
+    if (/^[+\-×÷]$/.test(key)) {
+      if (!expression || /[+\-×÷]$/.test(expression)) {
+        if (expression) setExpression(expression.slice(0, -1) + key);
+        return;
+      }
+      setExpression(expression + key);
+      setAmount('');
+      return;
+    }
+    const currentPart = expression.split(/[+\-×÷]/).pop() || '';
+    if (key === '.' && currentPart.includes('.')) return;
+    if (key === '00' && (!expression || currentPart === '0')) return;
+    const next = /^\d+$/.test(key) && currentPart === '0' && key !== '0'
+      ? expression.slice(0, -1) + key
+      : expression + key;
+    setExpression(next);
+    setAmount(evaluateExpression(next)?.toString() || '');
   };
 
   const handleSave = async () => {
@@ -108,10 +160,8 @@ export default function AddTransactionSheet({ open, onClose, onSaved, editTx }: 
     onClose();
   };
 
-  const displayAmount = amount || '0';
-  const formattedAmount = displayAmount.includes('.')
-    ? displayAmount
-    : displayAmount;
+  const displayAmount = expression || amount || '0';
+  const formattedAmount = amount || (evaluateExpression(expression)?.toString() || '0');
 
   return (
     <AnimatePresence>
@@ -131,7 +181,7 @@ export default function AddTransactionSheet({ open, onClose, onSaved, editTx }: 
             animate={{ translateY: 0 }}
             exit={{ translateY: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed inset-x-0 bottom-0 z-[60] flex flex-col rounded-t-2xl bg-white dark:bg-gray-800"
+            className="fixed inset-x-0 bottom-0 z-[60] flex flex-col rounded-t-3xl border-t border-white/60 bg-white/95 dark:border-white/10 dark:bg-gray-900/95"
             style={{ height: maxH, maxHeight: '95dvh' }}
           >
             {/* Header */}
@@ -148,36 +198,47 @@ export default function AddTransactionSheet({ open, onClose, onSaved, editTx }: 
             {/* Body: amount step scrollable, category step flex layout */}
             <div ref={bodyRef} className={`min-h-0 flex-1 px-5 ${step === 'category' ? 'flex flex-col overflow-hidden' : 'overflow-y-auto scrollbar-hide'}`}>
               {/* Type Toggle */}
-              <div className="flex shrink-0 justify-center gap-2 py-3">
-                <button
+              <div className="relative flex shrink-0 justify-center gap-2 py-3">
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
                   onClick={() => { setType('expense'); setCategoryId(null); }}
-                  className={`rounded-full px-6 py-1.5 text-sm font-medium transition-all ${
+                  className={`relative rounded-full px-6 py-1.5 text-sm font-medium transition-all ${
                     type === 'expense'
-                      ? 'bg-red-500 text-white shadow-sm'
-                      : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
+                      ? 'text-white'
+                      : 'text-gray-500 dark:text-gray-400'
                   }`}
                 >
-                  支出
-                </button>
-                <button
+                  {type === 'expense' && (
+                    <motion.div layoutId="sheet-type-pill" transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                      className="absolute inset-0 rounded-full bg-gradient-to-r from-red-500 to-rose-600 shadow-md" />
+                  )}
+                  <span className="relative">支出</span>
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
                   onClick={() => { setType('income'); setCategoryId(null); }}
-                  className={`rounded-full px-6 py-1.5 text-sm font-medium transition-all ${
+                  className={`relative rounded-full px-6 py-1.5 text-sm font-medium transition-all ${
                     type === 'income'
-                      ? 'bg-primary-500 text-white shadow-sm'
-                      : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
+                      ? 'text-white'
+                      : 'text-gray-500 dark:text-gray-400'
                   }`}
                 >
-                  收入
-                </button>
+                  {type === 'income' && (
+                    <motion.div layoutId="sheet-type-pill" transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                      className="absolute inset-0 rounded-full bg-gradient-to-r from-primary-500 to-primary-700 shadow-md" />
+                  )}
+                  <span className="relative">收入</span>
+                </motion.button>
               </div>
 
               {step === 'amount' ? (
                 <div>
                   <div className="py-2 text-center">
-                    <div className="text-4xl font-bold text-gray-900 dark:text-gray-100">
+                    <motion.div key={formattedAmount} initial={{ scale: 0.92, opacity: 0.5 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+                      className="text-4xl font-bold text-gray-900 dark:text-gray-100">
                       <span className="text-2xl mr-1">¥</span>
-                      {formattedAmount}
-                    </div>
+                      {displayAmount}
+                    </motion.div>
                   </div>
 
                   <div className="pb-2">
@@ -204,42 +265,59 @@ export default function AddTransactionSheet({ open, onClose, onSaved, editTx }: 
                   <div className="pt-1 pb-6">
                     <div className="grid grid-cols-4 gap-2">
                       {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
-                        <button
+                        <motion.button
                           key={n}
-                          onClick={() => handleNumberInput(String(n))}
-                          className="rounded-xl bg-gray-50 py-4 text-2xl font-semibold text-gray-800 active:scale-95 active:bg-gray-200 transition-all dark:bg-gray-700 dark:text-gray-200"
+                          whileTap={{ scale: 0.85 }}
+                          onClick={() => handleCalculatorKey(String(n))}
+                          className="rounded-xl bg-gray-50 py-4 text-2xl font-semibold text-gray-800 transition-colors hover:bg-gray-100 dark:bg-gray-700/70 dark:text-gray-200"
                         >
                           {n}
-                        </button>
+                        </motion.button>
                       ))}
-                      <button
-                        onClick={() => handleNumberInput('.')}
-                        className="rounded-xl bg-gray-50 py-4 text-2xl font-semibold text-gray-800 active:scale-95 active:bg-gray-200 transition-all dark:bg-gray-700 dark:text-gray-200"
+                      <motion.button
+                        whileTap={{ scale: 0.85 }}
+                        onClick={() => handleCalculatorKey('.')}
+                        className="rounded-xl bg-gray-50 py-4 text-2xl font-semibold text-gray-800 transition-colors hover:bg-gray-100 dark:bg-gray-700/70 dark:text-gray-200"
                       >
                         .
-                      </button>
-                      <button
-                        onClick={() => handleNumberInput('0')}
-                        className="rounded-xl bg-gray-50 py-4 text-2xl font-semibold text-gray-800 active:scale-95 active:bg-gray-200 transition-all dark:bg-gray-700 dark:text-gray-200"
+                      </motion.button>
+                      <motion.button
+                        whileTap={{ scale: 0.85 }}
+                        onClick={() => handleCalculatorKey('0')}
+                        className="rounded-xl bg-gray-50 py-4 text-2xl font-semibold text-gray-800 transition-colors hover:bg-gray-100 dark:bg-gray-700/70 dark:text-gray-200"
                       >
                         0
-                      </button>
-                      <button
-                        onClick={() => handleNumberInput('00')}
-                        className="rounded-xl bg-gray-50 py-4 text-2xl font-semibold text-gray-800 active:scale-95 active:bg-gray-200 transition-all dark:bg-gray-700 dark:text-gray-200"
+                      </motion.button>
+                      <motion.button
+                        whileTap={{ scale: 0.85 }}
+                        onClick={() => handleCalculatorKey('00')}
+                        className="rounded-xl bg-gray-50 py-4 text-2xl font-semibold text-gray-800 transition-colors hover:bg-gray-100 dark:bg-gray-700/70 dark:text-gray-200"
                       >
                         00
-                      </button>
-                      <button
-                        onClick={() => handleNumberInput('backspace')}
-                        className="rounded-xl bg-gray-50 py-3 text-xl font-semibold text-gray-800 active:scale-95 active:bg-gray-200 transition-all dark:bg-gray-700 dark:text-gray-200"
+                      </motion.button>
+                      <motion.button
+                        whileTap={{ scale: 0.85 }}
+                        onClick={() => handleCalculatorKey('backspace')}
+                        className="rounded-xl bg-gray-50 py-3 text-xl font-semibold text-gray-800 transition-colors hover:bg-gray-100 dark:bg-gray-700/70 dark:text-gray-200"
                       >
-                        ⌫
-                      </button>
+                        <Delete size={22} className="mx-auto" />
+                      </motion.button>
+                      {['+', '−', '×', '÷'].map((operator) => (
+                        <motion.button key={operator} whileTap={{ scale: 0.85 }}
+                          onClick={() => handleCalculatorKey(operator === '−' ? '-' : operator)}
+                          className="rounded-xl bg-primary-50 py-4 text-2xl font-semibold text-primary-700 transition-colors hover:bg-primary-100 dark:bg-primary-900/30 dark:text-primary-300"
+                        >{operator}</motion.button>
+                      ))}
+                      <motion.button whileTap={{ scale: 0.85 }} onClick={() => handleCalculatorKey('clear')}
+                        className="rounded-xl bg-gray-100 py-4 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300"
+                      ><RotateCcw size={18} className="mx-auto" /></motion.button>
+                      <motion.button whileTap={{ scale: 0.85 }} onClick={() => handleCalculatorKey('=')}
+                        className="col-span-2 rounded-xl bg-primary-500 py-4 text-2xl font-semibold text-white transition-colors hover:bg-primary-600"
+                      >=</motion.button>
                     </div>
                     <button
-                      onClick={() => amount && parseFloat(amount) > 0 ? setStep('category') : null}
-                      disabled={!amount || parseFloat(amount) <= 0}
+                      onClick={() => amount && parseFloat(amount) > 0 && !/[+\-×÷]$/.test(expression) ? setStep('category') : null}
+                      disabled={!amount || parseFloat(amount) <= 0 || /[+\-×÷]$/.test(expression)}
                       className="btn-primary mt-3 w-full text-base"
                     >
                       下一步
@@ -260,18 +338,27 @@ export default function AddTransactionSheet({ open, onClose, onSaved, editTx }: 
                   <div className="flex-1 overflow-y-auto min-h-0 scrollbar-hide p-0.5">
                     <div className="grid grid-cols-4 gap-1.5 pb-4">
                       {currentCategories.map((cat) => (
-                        <button
+                        <motion.button
                           key={cat.id}
+                          whileTap={{ scale: 0.9 }}
                           onClick={() => setCategoryId(cat.id!)}
-                          className={`flex flex-col items-center gap-1 rounded-lg p-2 transition-all active:scale-95 ${
+                          className={`flex flex-col items-center gap-1 rounded-lg p-2 transition-all ${
                             categoryId === cat.id
-                              ? 'bg-primary-50 ring-2 ring-primary-400 dark:bg-primary-900/30'
-                              : 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600'
+                              ? 'bg-primary-50 dark:bg-primary-900/30'
+                              : 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-700/70 dark:hover:bg-gray-600'
                           }`}
                         >
-                          <div className="h-5 w-5 rounded-full" style={{ backgroundColor: cat.color }} />
+                          <div className="relative">
+                            <motion.div animate={categoryId === cat.id ? { scale: 1.15 } : { scale: 1 }}
+                              transition={{ type: 'spring', stiffness: 400, damping: 18 }}
+                              className="h-5 w-5 rounded-full" style={{ backgroundColor: cat.color }} />
+                            {categoryId === cat.id && (
+                              <motion.div layoutId="sheet-cat-ring" transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                                className="absolute -inset-1.5 rounded-full border-2 border-primary-400" />
+                            )}
+                          </div>
                           <span className="text-sm text-gray-600 dark:text-gray-300 text-center leading-tight">{cat.name}</span>
-                        </button>
+                        </motion.button>
                       ))}
                     </div>
                   </div>

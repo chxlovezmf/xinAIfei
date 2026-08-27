@@ -1,27 +1,31 @@
-import { useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { lazy, Suspense, useEffect, useState } from 'react';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import Layout from './components/Layout';
 import Home from './pages/Home';
 import Accounting from './pages/Accounting';
 import Notes from './pages/Notes';
 import NoteDetail from './pages/NoteDetail';
-import Stats from './pages/Stats';
-import Settings from './pages/Settings';
 import { initCategories } from './db/database';
 
+const Stats = lazy(() => import('./pages/Stats'));
+const Settings = lazy(() => import('./pages/Settings'));
+
 function AppContent() {
+  const location = useLocation();
   return (
     <Layout>
-      <AnimatePresence mode="wait">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/accounting" element={<Accounting />} />
-          <Route path="/notes" element={<Notes />} />
-          <Route path="/notes/:id" element={<NoteDetail />} />
-          <Route path="/stats" element={<Stats />} />
-          <Route path="/settings" element={<Settings />} />
-        </Routes>
+      <AnimatePresence mode="popLayout" initial={false}>
+        <Suspense fallback={<div className="py-16 text-center text-sm text-gray-400">加载中...</div>}>
+          <Routes location={location} key={location.pathname}>
+            <Route path="/" element={<Home />} />
+            <Route path="/accounting" element={<Accounting />} />
+            <Route path="/notes" element={<Notes />} />
+            <Route path="/notes/:id" element={<NoteDetail />} />
+            <Route path="/stats" element={<Stats />} />
+            <Route path="/settings" element={<Settings />} />
+          </Routes>
+        </Suspense>
       </AnimatePresence>
     </Layout>
   );
