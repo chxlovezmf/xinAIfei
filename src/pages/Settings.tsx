@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Sun, Moon, Database, Download, Upload, Palette, Info, HardDrive, CheckCircle, XCircle } from "lucide-react";
 import type { Category } from "../types";
 import dayjs from "dayjs";
-import { getCategories, addCategory, deleteCategory, updateCategory, getAllTransactions, getAllNotes, importData } from "../db/database";
+import { getCategories, addCategory, deleteCategory, updateCategory, getAllTransactions, getAllNotes, getBalanceSnapshot, importData } from "../db/database";
 import { PageTransition } from "../components/Layout";
 import { useDarkMode } from "../hooks/useDarkMode";
 import { exportAllData, importAllData, getExportDataString, copyToClipboard, nativeExport, shareExportFile, listBackupFiles, readBackupFile, type BackupFileInfo } from "../utils/export";
@@ -49,7 +49,7 @@ export default function Settings() {
     })();
   },[]);
 
-  const APP_VERSION = '1.4.0';
+  const APP_VERSION = '1.4.1';
   const DEFAULT_ABOUT_TEXT = "想把和她的一辈子都记录在这里";
   if (localStorage.getItem('aboutTextVersion')!==APP_VERSION) { localStorage.removeItem('aboutText'); localStorage.setItem('aboutTextVersion',APP_VERSION); }
   const aboutText = localStorage.getItem("aboutText")||DEFAULT_ABOUT_TEXT;
@@ -59,8 +59,8 @@ export default function Settings() {
   useEffect(()=>{ getCategories().then(setCategories); },[]);
 
   const handleExportToFile = async () => {
-    const [txs,notes,cats] = await Promise.all([getAllTransactions(),getAllNotes(),getCategories()]);
-    const jsonStr = getExportDataString(txs, notes, cats);
+    const [txs,notes,cats,balance] = await Promise.all([getAllTransactions(),getAllNotes(),getCategories(),getBalanceSnapshot()]);
+    const jsonStr = getExportDataString(txs, notes, cats, balance);
     const fileName = `记一记_数据备份_${dayjs().format('YYYYMMDD_HHmmss')}.json`;
     const saved = await nativeExport(jsonStr, fileName);
     if (saved) {
@@ -71,13 +71,13 @@ export default function Settings() {
         showToast('success','备份已保存到"文档"文件夹，打开手机"文件管理"可找到');
       }
     } else {
-      exportAllData(txs,notes,cats);
+      exportAllData(txs,notes,cats,balance);
       showToast('success','文件已下载到本地');
     }
   };
   const handleExportToClipboard = async () => {
-    const [txs,notes,cats] = await Promise.all([getAllTransactions(),getAllNotes(),getCategories()]);
-    const jsonStr = getExportDataString(txs, notes, cats);
+    const [txs,notes,cats,balance] = await Promise.all([getAllTransactions(),getAllNotes(),getCategories(),getBalanceSnapshot()]);
+    const jsonStr = getExportDataString(txs, notes, cats, balance);
     const ok = await copyToClipboard(jsonStr);
     if (ok) {
       showToast('success','数据已复制到剪贴板，粘贴到备忘录等地方保存即可');
@@ -148,21 +148,22 @@ export default function Settings() {
   return (
     <PageTransition>
       <div className="page-container">
-        <h1 className="page-title mb-4">设置</h1>
+        <h1 className="page-title mb-4 flex items-center gap-1.5"><span className="sticker-emoji text-base">🎀</span>设置</h1>
 
-        <div className="card mb-3 flex items-center justify-between">
+        <div className="glass-card mb-3 flex items-center justify-between p-4">
           <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-gray-100 p-2 dark:bg-gray-700">{isDark?<Moon size={18} className="text-blue-400"/>:<Sun size={18} className="text-amber-500"/>}</div>
+            <div className="rounded-xl bg-gradient-to-br from-primary-500 to-purple-500 p-2 text-white shadow-sm">{isDark?<Moon size={18}/>:<Sun size={18}/>}</div>
             <div><p className="text-sm font-medium text-gray-800 dark:text-gray-200">深色模式</p><p className="text-xs text-gray-400">切换界面主题</p></div>
           </div>
-          <button onClick={toggle} className={"relative h-6 w-11 rounded-full transition-colors "+(isDark?"bg-primary-500":"bg-gray-300")}>
-            <div className={"absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform "+(isDark?"translate-x-5":"")}/>
+          <button onClick={toggle} className={"relative h-7 w-12 rounded-full transition-colors "+(isDark?"bg-gradient-to-r from-primary-500 to-purple-500":"bg-gray-300")}>
+            <motion.div animate={{ x: isDark ? 20 : 0 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+              className="absolute left-0.5 top-0.5 h-6 w-6 rounded-full bg-white shadow-sm" />
           </button>
         </div>
 
-        <div className="card mb-3">
+        <div className="glass-card mb-3 p-4">
           <div className="flex items-center gap-3 mb-3">
-            <div className="rounded-xl bg-gray-100 p-2 dark:bg-gray-700"><Database size={18} className="text-primary-500"/></div>
+            <div className="rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 p-2 text-white shadow-sm"><Database size={18}/></div>
             <p className="text-sm font-medium text-gray-800 dark:text-gray-200">数据管理</p>
           </div>
           <div className="flex gap-2">
@@ -177,15 +178,15 @@ export default function Settings() {
           {importStatus&&<p className="mt-2 text-xs text-gray-500">{importStatus}</p>}
         </div>
 
-        <div className="card mb-3">
+        <div className="glass-card mb-3 p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3">
-              <div className="rounded-xl bg-gray-100 p-2 dark:bg-gray-700"><HardDrive size={18} className="text-gray-500"/></div>
+              <div className="rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 p-2 text-white shadow-sm"><HardDrive size={18}/></div>
               <p className="text-sm font-medium text-gray-800 dark:text-gray-200">存储空间</p>
             </div>
             <button onClick={()=>{
               if(window.confirm('确定要清除所有数据吗？此操作不可恢复！\n\n建议先导出备份再清除。')) {
-                import('../db/database').then(async({db})=>{await db.transactions.clear();await db.notes.clear();await db.categories.clear();await db.tasks.clear();
+                import('../db/database').then(async({db})=>{await db.transactions.clear();await db.notes.clear();await db.categories.clear();await db.tasks.clear();await db.balanceSnapshots.clear();
                   const{initCategories}=await import('../db/database');await initCategories();
                   showToast('success','数据已清除，请在手机设置中清除应用缓存后重新打开');
                 });
@@ -207,9 +208,9 @@ export default function Settings() {
           </div>
         </div>
 
-        <div className="card mb-3">
+        <div className="glass-card mb-3 p-4">
           <div className="flex items-center gap-3 mb-3">
-            <div className="rounded-xl bg-gray-100 p-2 dark:bg-gray-700"><Palette size={18} className="text-purple-500"/></div>
+            <div className="rounded-xl bg-gradient-to-br from-purple-500 to-fuchsia-500 p-2 text-white shadow-sm"><Palette size={18}/></div>
             <p className="text-sm font-medium text-gray-800 dark:text-gray-200">分类管理</p>
           </div>
           <div className="mb-3 space-y-2">
@@ -230,6 +231,17 @@ export default function Settings() {
                 </label>
                 <span className="text-xs text-gray-500 font-mono">{newCatColor}</span>
                 <button onClick={() => setNewCatColor(DEFAULT_CATEGORY_COLOR)} className="ml-1 rounded-lg bg-gray-100 px-2 py-1 text-xs text-gray-500 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600">重置</button>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {[
+                  '#14b8a6','#0f766e','#a855f7','#7e22ce','#ec4899','#be185d',
+                  '#3b82f6','#1d4ed8','#f59e0b','#d97706','#22c55e','#047857',
+                  '#ef4444','#b91c1c','#6366f1','#4338ca','#06b6d4','#0e7490',
+                ].map(c => (
+                  <button key={c} onClick={() => setNewCatColor(c)}
+                    className={"h-7 w-7 rounded-full shadow-sm transition-all active:scale-90 "+(newCatColor===c?'ring-2 ring-offset-2 ring-primary-400 dark:ring-offset-gray-900':'hover:scale-110')}
+                    style={{ backgroundColor: c }} />
+                ))}
               </div>
             </div>
           </div>
@@ -257,8 +269,8 @@ export default function Settings() {
           </div>
         </div>
 
-        <div className="card flex items-center gap-3 cursor-pointer active:scale-[0.98] transition-transform" onClick={()=>{setShowAbout(true);setEditAbout(aboutText);setEditingAbout(false);}}>
-          <div className="rounded-xl bg-gray-100 p-2 dark:bg-gray-700"><Info size={18} className="text-gray-400"/></div>
+        <div className="glass-card flex items-center gap-3 p-4 cursor-pointer active:scale-[0.98] transition-transform" onClick={()=>{setShowAbout(true);setEditAbout(aboutText);setEditingAbout(false);}}>
+          <div className="rounded-xl bg-gradient-to-br from-gray-400 to-gray-500 p-2 text-white shadow-sm"><Info size={18}/></div>
           <div><p className="text-sm font-medium text-gray-800 dark:text-gray-200">关于鑫菲日记</p><p className="text-xs text-gray-400">版本 1.4</p></div>
         </div>
 
@@ -344,9 +356,12 @@ export default function Settings() {
 
         <AnimatePresence>{toast&&(
           <motion.div initial={{opacity:0,y:50}} animate={{opacity:1,y:0}} exit={{opacity:0,y:50}} className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2">
-            <div className={"flex items-center gap-2 rounded-xl px-4 py-3 shadow-lg backdrop-blur-lg text-sm font-medium "+(toast.type==='success'?'bg-primary-500 text-white':'bg-red-500 text-white')}>
-              {toast.type==='success'?<CheckCircle size={18}/>:<XCircle size={18}/>}
-              {toast.message}
+            <div className={"relative overflow-hidden rounded-xl px-4 py-3 shadow-lg text-sm font-medium "+(toast.type==='success'?'bg-white/90 text-gray-800 dark:bg-gray-900/90 dark:text-gray-200':'bg-white/90 text-gray-800 dark:bg-gray-900/90 dark:text-gray-200')}>
+              <div className={"absolute inset-x-0 top-0 h-0.5 "+(toast.type==='success'?'bg-gradient-to-r from-primary-400 to-primary-600':'bg-gradient-to-r from-red-400 to-red-600')}/>
+              <div className="flex items-center gap-2">
+                {toast.type==='success'?<CheckCircle size={18} className="text-primary-500"/>:<XCircle size={18} className="text-red-500"/>}
+                {toast.message}
+              </div>
             </div>
           </motion.div>
         )}</AnimatePresence>

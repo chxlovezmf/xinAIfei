@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { Transaction, Note, Category, Task } from '../types';
+import type { Transaction, Note, Category, Task, BalanceSnapshot } from '../types';
 import { presetCategories } from './categories';
 
 export class AppDatabase extends Dexie {
@@ -7,6 +7,7 @@ export class AppDatabase extends Dexie {
   notes!: Table<Note, number>;
   categories!: Table<Category, number>;
   tasks!: Table<Task, number>;
+  balanceSnapshots!: Table<BalanceSnapshot, number>;
 
   constructor() {
     super('jiyiji');
@@ -21,22 +22,50 @@ export class AppDatabase extends Dexie {
       categories: '++id, type, order',
       tasks: '++id, date, done, createdAt',
     });
+    this.version(3).stores({
+      transactions: '++id, type, categoryId, date, createdAt',
+      notes: '++id, type, pinned, createdAt, updatedAt',
+      categories: '++id, type, order',
+      tasks: '++id, date, done, createdAt',
+      balanceSnapshots: 'id, effectiveAt',
+    });
   }
 }
 
 export const db = new AppDatabase();
 
 // Initialize preset categories if not already present
-export async function importData(data: { transactions: any[]; notes: any[]; categories: any[] }) {
+export async function importData(data: { transactions: any[]; notes: any[]; categories: any[]; balance?: BalanceSnapshot | null }) {
   await db.transactions.clear();
   await db.notes.clear();
   await db.categories.clear();
+  await db.balanceSnapshots.clear();
   if (data.transactions.length) await db.transactions.bulkAdd(data.transactions);
   if (data.notes.length) await db.notes.bulkAdd(data.notes);
   if (data.categories.length) await db.categories.bulkAdd(data.categories);
+  if (data.balance && Number.isFinite(data.balance.amount) && data.balance.effectiveAt) {
+    await db.balanceSnapshots.put({ id: 1, amount: data.balance.amount, effectiveAt: data.balance.effectiveAt });
+  }
   // Re-init presets if no categories were imported
   const count = await db.categories.count();
   if (count === 0) await initCategories();
+}
+
+export async function getBalanceSnapshot() {
+  return db.balanceSnapshots.get(1);
+}
+
+export async function setBalanceSnapshot(amount: number) {
+  const snapshot: BalanceSnapshot = { id: 1, amount, effectiveAt: new Date().toISOString() };
+  await db.balanceSnapshots.put(snapshot);
+  return snapshot;
+}
+
+export async function getCurrentBalance() {
+  const snapshot = await getBalanceSnapshot();
+  if (!snapshot) return null;
+  const transactions = await db.transactions.where('createdAt').aboveOrEqual(snapshot.effectiveAt).toArray();
+  return snapshot.amount + transactions.reduce((total, tx) => total + (tx.type === 'income' ? tx.amount : -tx.amount), 0);
 }
 
 export async function initCategories() {

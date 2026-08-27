@@ -2,14 +2,14 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, PointElement, LineElement, Filler } from 'chart.js';
 import { Doughnut, Bar, Line } from 'react-chartjs-2';
-import { Download, Calendar, X } from 'lucide-react';
+import { Download, Calendar, X, Pencil, Check } from 'lucide-react';
 import type { Transaction, Category } from '../types';
-import { getTransactionsByMonth, getCategories, getTransactionsByDateRange } from '../db/database';
+import { getTransactionsByMonth, getCategories, getTransactionsByDateRange, getBalanceSnapshot, getCurrentBalance, setBalanceSnapshot } from '../db/database';
 import { formatAmount, getCurrentMonth } from '../utils/format';
 import { exportToExcel } from '../utils/export';
-import * as XLSX from 'xlsx';
 import { PageTransition } from '../components/Layout';
 import MonthPicker from '../components/MonthPicker';
+import AnimatedNumber from '../components/AnimatedNumber';
 import { CardSkeleton } from '../components/Skeleton';
 import dayjs from 'dayjs';
 
@@ -17,10 +17,10 @@ ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarEle
 
 // A set of visually distinct colors for the chart
 const CHART_COLORS = [
-  '#ef4444', '#f97316', '#f59e0b', '#22c55e',
-  '#14b8a6', '#3b82f6', '#8b5cf6', '#ec4899',
-  '#06b6d4', '#84cc16', '#a855f7', '#f43f5e',
-  '#0ea5e9', '#10b981', '#eab308', '#6366f1',
+  '#14b8a6', '#a855f7', '#ec4899', '#f59e0b',
+  '#3b82f6', '#22c55e', '#ef4444', '#6366f1',
+  '#06b6d4', '#84cc16', '#fb923c', '#f43f5e',
+  '#0ea5e9', '#10b981', '#eab308', '#8b5cf6',
 ];
 
 function shuffleArray<T>(arr: T[]): T[] {
@@ -43,12 +43,16 @@ export default function Stats() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [balance, setBalance] = useState<number | null>(null);
+  const [balanceDraft, setBalanceDraft] = useState('');
+  const [editingBalance, setEditingBalance] = useState(false);
   const chartRef = useRef<any>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    const cats = await getCategories();
+    const [cats, snapshot, currentBalance] = await Promise.all([getCategories(), getBalanceSnapshot(), getCurrentBalance()]);
     setCategories(cats);
+    setBalance(snapshot ? currentBalance : null);
     let txs: Transaction[];
     if (viewMode === 'month') {
       txs = await getTransactionsByMonth(year, month);
@@ -122,13 +126,26 @@ export default function Stats() {
     cursor = cursor.add(1, 'day');
   }
 
+  const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+  const tooltipBg = isDark ? 'rgba(17,24,39,0.92)' : 'rgba(255,255,255,0.95)';
+  const tooltipText = isDark ? '#f3f4f6' : '#111827';
+  const gridColor = isDark ? 'rgba(255,255,255,0.06)' : '#f0f0f0';
+
   const lineData = {
     labels: dailyLabels,
     datasets: [{
       label: '每日支出',
       data: dailyValues,
       borderColor: '#14b8a6',
-      backgroundColor: 'rgba(20, 184, 166, 0.1)',
+      backgroundColor: (context: any) => {
+        const { chart } = context;
+        const { ctx, chartArea } = chart;
+        if (!chartArea) return 'rgba(20,184,166,0.1)';
+        const g = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+        g.addColorStop(0, 'rgba(20,184,166,0.35)');
+        g.addColorStop(1, 'rgba(20,184,166,0.02)');
+        return g;
+      },
       fill: true,
       tension: 0.4,
       pointRadius: dailyValues.map(v => v > 0 ? 5 : 0),
@@ -151,8 +168,19 @@ export default function Stats() {
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
+    animation: { duration: 900, easing: 'easeOutQuart' as const },
     plugins: {
       legend: { display: false },
+      tooltip: {
+        backgroundColor: tooltipBg,
+        titleColor: tooltipText,
+        bodyColor: tooltipText,
+        borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
+        borderWidth: 1,
+        cornerRadius: 10,
+        padding: 10,
+        boxPadding: 4,
+      },
     },
   };
 
@@ -178,13 +206,13 @@ export default function Stats() {
     },
     scales: {
       x: { grid: { display: false }, ticks: { font: { size: 10 }, maxTicksLimit: 31 } },
-      y: { beginAtZero: true, grid: { color: '#f0f0f0' }, ticks: { font: { size: 10 } } },
+      y: { beginAtZero: true, grid: { color: gridColor }, ticks: { font: { size: 10 } } },
     },
   };
 
   const handleExport = () => {
     if (viewMode === 'month') {
-      exportToExcel(transactions, categories, year, month);
+      void exportToExcel(transactions, categories, year, month);
     } else {
       // Use range export
       const catMap = new Map(categories.map((c) => [c.id!, c]));
@@ -199,6 +227,7 @@ export default function Stats() {
           '创建时间': dayjs(tx.createdAt).format('YYYY-MM-DD HH:mm'),
         };
       });
+      void import('xlsx').then(XLSX => {
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(data);
       XLSX.utils.book_append_sheet(wb, ws, '账目明细');
@@ -208,7 +237,16 @@ export default function Stats() {
       ];
       const fileName = `记一记_账目_${rangeStart}_${rangeEnd}.xlsx`;
       XLSX.writeFile(wb, fileName);
+      });
     }
+  };
+
+  const handleBalanceSave = async () => {
+    const amount = Number(balanceDraft);
+    if (!Number.isFinite(amount) || amount < 0 || Math.round(amount * 100) !== amount * 100) return;
+    await setBalanceSnapshot(amount);
+    setBalance(amount);
+    setEditingBalance(false);
   };
 
   const periodLabel = viewMode === 'month'
@@ -223,7 +261,7 @@ export default function Stats() {
     <PageTransition>
       <div className="page-container">
         <div className="mb-4 flex items-center justify-between">
-          <h1 className="page-title">统计</h1>
+          <h1 className="flex items-center gap-1.5 page-title"><span className="sticker-emoji text-base">📊</span>统计</h1>
           <button
             onClick={handleExport}
             className="btn-secondary gap-1 py-2 px-4 text-sm"
@@ -234,20 +272,26 @@ export default function Stats() {
         </div>
 
         {/* View Mode Toggle */}
-        <div className="mb-3 flex gap-1 rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
+        <div className="mb-3 flex gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-gray-800/80">
           <button
             onClick={() => setViewMode('month')}
-            className={'flex-1 rounded-lg py-1.5 text-xs font-medium transition-all ' +
-              (viewMode === 'month' ? 'bg-white text-gray-800 shadow-sm dark:bg-gray-700 dark:text-gray-200' : 'text-gray-500')}
+            className={'relative flex-1 rounded-full py-1.5 text-xs font-medium transition-all ' +
+              (viewMode === 'month' ? 'text-gray-800 dark:text-gray-200' : 'text-gray-500')}
           >
-            按月查看
+            {viewMode === 'month' && (
+              <motion.div layoutId="stats-mode-pill" className="absolute inset-0 rounded-full bg-white shadow-sm dark:bg-gray-700" transition={{ type: 'spring', stiffness: 400, damping: 30 }} />
+            )}
+            <span className="relative">按月查看</span>
           </button>
           <button
             onClick={() => setViewMode('range')}
-            className={'flex-1 rounded-lg py-1.5 text-xs font-medium transition-all ' +
-              (viewMode === 'range' ? 'bg-white text-gray-800 shadow-sm dark:bg-gray-700 dark:text-gray-200' : 'text-gray-500')}
+            className={'relative flex-1 rounded-full py-1.5 text-xs font-medium transition-all ' +
+              (viewMode === 'range' ? 'text-gray-800 dark:text-gray-200' : 'text-gray-500')}
           >
-            自定义范围
+            {viewMode === 'range' && (
+              <motion.div layoutId="stats-mode-pill" className="absolute inset-0 rounded-full bg-white shadow-sm dark:bg-gray-700" transition={{ type: 'spring', stiffness: 400, damping: 30 }} />
+            )}
+            <span className="relative">自定义范围</span>
           </button>
         </div>
 
@@ -257,7 +301,7 @@ export default function Stats() {
             <MonthPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
           </div>
         ) : (
-          <div className="mb-4 flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 shadow-sm dark:bg-gray-800">
+          <div className="glass-card mb-4 flex items-center gap-2 px-4 py-2.5">
             <Calendar size={16} className="text-gray-400 shrink-0" />
             <input
               type="date"
@@ -274,6 +318,38 @@ export default function Stats() {
             />
           </div>
         )}
+
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass-card mb-4 flex items-center justify-between px-4 py-3"
+        >
+          <div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">当前余额</p>
+            {editingBalance ? (
+              <div className="mt-1 flex items-center gap-2">
+                <span className="text-lg font-semibold text-gray-700 dark:text-gray-200">¥</span>
+                <input
+                  autoFocus
+                  inputMode="decimal"
+                  value={balanceDraft}
+                  onChange={e => setBalanceDraft(e.target.value.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1'))}
+                  onKeyDown={e => { if (e.key === 'Enter') void handleBalanceSave(); }}
+                  className="w-32 border-b border-primary-400 bg-transparent text-lg font-semibold text-gray-800 outline-none dark:text-gray-100"
+                />
+              </div>
+            ) : (
+              <p className="mt-0.5 text-2xl font-bold text-gray-900 dark:text-gray-100">
+                {balance === null ? '未设置' : `¥${formatAmount(balance)}`}
+              </p>
+            )}
+          </div>
+          {editingBalance ? (
+            <button onClick={() => void handleBalanceSave()} className="rounded-full bg-primary-500 p-2 text-white" title="保存余额"><Check size={17} /></button>
+          ) : (
+            <button onClick={() => { setBalanceDraft(balance === null ? '' : String(balance)); setEditingBalance(true); }} className="rounded-full bg-gray-100 p-2 text-gray-500 transition-colors hover:bg-primary-100 hover:text-primary-600 dark:bg-gray-700" title="编辑余额"><Pencil size={16} /></button>
+          )}
+        </motion.div>
 
         {loading ? (
           <div className="space-y-4">
@@ -292,19 +368,19 @@ export default function Stats() {
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex-1 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-600 p-4 text-white shadow-sm"
+                className="grad-card grad-teal grad-animated flex-1 p-4"
               >
                 <p className="text-xs text-primary-100">总收入</p>
-                <p className="mt-1 text-xl font-bold">¥{formatAmount(totalIncome)}</p>
+                <p className="mt-1 text-xl font-bold"><AnimatedNumber value={totalIncome} format={(n) => '¥' + formatAmount(n)} /></p>
               </motion.div>
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.05 }}
-                className="flex-1 rounded-2xl bg-gradient-to-br from-red-400 to-red-500 p-4 text-white shadow-sm"
+                className="grad-card grad-rose grad-animated flex-1 p-4"
               >
                 <p className="text-xs text-red-100">总支出</p>
-                <p className="mt-1 text-xl font-bold">¥{formatAmount(totalExpense)}</p>
+                <p className="mt-1 text-xl font-bold"><AnimatedNumber value={totalExpense} format={(n) => '¥' + formatAmount(n)} /></p>
               </motion.div>
             </div>
 
@@ -314,7 +390,7 @@ export default function Stats() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="mb-4 rounded-2xl bg-white p-4 shadow-sm dark:bg-gray-800"
+                className="glass-card mb-4 p-4"
               >
                 <h3 className="mb-3 text-sm font-semibold text-gray-800 dark:text-gray-200">支出分类占比</h3>
                 <div className="mx-auto h-56 w-56">
@@ -350,7 +426,7 @@ export default function Stats() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.15 }}
-              className="mb-4 rounded-2xl bg-white p-4 shadow-sm dark:bg-gray-800"
+              className="glass-card mb-4 p-4"
             >
               <h3 className="mb-3 text-sm font-semibold text-gray-800 dark:text-gray-200">
                 每日支出趋势
@@ -414,7 +490,7 @@ export default function Stats() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="rounded-2xl bg-white p-4 shadow-sm dark:bg-gray-800"
+              className="glass-card p-4"
             >
               <h3 className="mb-3 text-sm font-semibold text-gray-800 dark:text-gray-200">收支对比</h3>
               <div className="h-32">

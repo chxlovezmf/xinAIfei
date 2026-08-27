@@ -41,4 +41,10 @@ export interface Task {
   updatedAt: string;
 }
 
+export interface BalanceSnapshot {
+  id?: number;
+  amount: number;
+  effectiveAt: string;
+}
+
 export type PageView = 'home' | 'accounting' | 'notes' | 'stats' | 'settings';
