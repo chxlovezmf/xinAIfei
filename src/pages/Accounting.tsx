@@ -12,6 +12,8 @@ import AnimatedNumber from '../components/AnimatedNumber';
 import FloatingActionButton from '../components/FloatingActionButton';
 import EmptyState from '../components/EmptyState';
 import { ListSkeleton } from '../components/Skeleton';
+import CategoryIcon from '../components/CategoryIcon';
+import { getBubuCategoryArt } from '../utils/categoryArt';
 import dayjs from 'dayjs';
 
 type SortOption = 'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc' | 'category-asc' | 'category-desc';
@@ -115,6 +117,9 @@ export default function Accounting() {
 
   const renderTransaction = (tx: Transaction, showDate = false) => {
     const cat = catMap.get(tx.categoryId);
+    const artPath = cat && document.documentElement.dataset.theme === 'bubu'
+      ? getBubuCategoryArt(cat.type, cat.icon)
+      : undefined;
     return (
       <motion.div key={tx.id} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }}
         className="glass-card flex items-center justify-between gap-2 px-3 py-2.5">
@@ -122,7 +127,13 @@ export default function Accounting() {
           {showDate && <span className="shrink-0 text-xs text-gray-400">{formatDate(tx.date)}</span>}
           {cat && (
             <div className="flex min-w-0 items-center gap-1.5">
-              <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
+              {artPath ? (
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl" style={{ backgroundColor: `${cat.color}20` }}>
+                  <img src={artPath} alt="" className="h-full w-full object-contain" />
+                </span>
+              ) : (
+                <CategoryIcon iconName={cat.icon || 'circle'} color={cat.color} size={18} className="h-8 w-8 shrink-0" />
+              )}
               <span className="truncate text-sm text-gray-700 dark:text-gray-300">{cat.name}</span>
             </div>
           )}
