@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg'],
+      includeAssets: ['favicon.svg', 'app-icon-48.png', 'app-icon-180.png', 'app-icon-192.png', 'app-icon-512.png'],
       manifest: {
         name: '鑫菲日记 - 记事记账本',
         short_name: '鑫菲日记',
@@ -18,9 +18,14 @@ export default defineConfig({
         orientation: 'portrait',
         icons: [
           {
-            src: '/favicon.svg',
+            src: '/app-icon-192.png',
             sizes: '192x192',
-            type: 'image/svg+xml',
+            type: 'image/png',
+          },
+          {
+            src: '/app-icon-512.png',
+            sizes: '512x512',
+            type: 'image/png',
           },
         ],
       },
