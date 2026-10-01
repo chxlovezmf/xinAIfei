@@ -1,6 +1,6 @@
 const ORBS = [
-  { top: '18%', left: '58%', width: 300, height: 300, color: 'radial-gradient(circle at 60% 40%, rgba(168,85,247,0.45), transparent 70%)' },
-  { top: '46%', left: '-14%', width: 260, height: 260, color: 'radial-gradient(circle at 40% 60%, rgba(236,72,153,0.4), transparent 70%)' },
+  { top: '18%', left: '58%', width: 300, height: 300, variant: 'ambient-orb-a' },
+  { top: '46%', left: '-14%', width: 260, height: 260, variant: 'ambient-orb-b' },
 ];
 
 const PARTICLES = [
@@ -22,13 +22,12 @@ export default function AmbientBackground() {
       {ORBS.map((o, i) => (
         <div
           key={i}
-          className="ambient-orb"
+          className={`ambient-orb ${o.variant}`}
           style={{
             top: o.top,
             left: o.left,
             width: o.width,
             height: o.height,
-            background: o.color,
           }}
         />
       ))}

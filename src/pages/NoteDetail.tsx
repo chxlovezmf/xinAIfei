@@ -78,7 +78,7 @@ export default function NoteDetail() {
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="flex min-h-dvh flex-col bg-warm-50 dark:bg-gray-900"
+      className="app-shell flex min-h-dvh flex-col"
     >
       {/* Header */}
       <div className="glass-card flex items-center justify-between border-b border-gray-100/60 px-4 py-3 dark:border-gray-700/60"
@@ -96,7 +96,7 @@ export default function NoteDetail() {
               <Trash2 size={18} />
             </button>
           )}
-          <button onClick={handleSave} disabled={saving} className="btn-primary gap-1 py-2 px-4 text-sm">
+          <button onClick={handleSave} disabled={saving} className="btn-primary bubu-art-button gap-1 py-2 px-4 text-sm">
             <Save size={16} />
             {saving ? '保存中...' : '保存'}
           </button>

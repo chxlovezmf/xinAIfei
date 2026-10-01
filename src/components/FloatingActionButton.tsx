@@ -9,10 +9,10 @@ interface FloatingActionButtonProps {
 }
 
 const GRADS: Record<string, string> = {
-  primary: 'bg-gradient-to-br from-primary-500 to-primary-700',
-  purple: 'bg-gradient-to-br from-purple-500 to-purple-700',
-  pink: 'bg-gradient-to-br from-pink-500 to-rose-600',
-  indigo: 'bg-gradient-to-br from-indigo-500 to-blue-600',
+  primary: 'theme-gradient-primary',
+  purple: 'theme-gradient-purple',
+  pink: 'theme-gradient-pink',
+  indigo: 'theme-gradient-indigo',
 };
 
 export default function FloatingActionButton({
@@ -27,7 +27,8 @@ export default function FloatingActionButton({
       whileHover={{ scale: 1.06 }}
       whileTap={{ scale: 0.85 }}
       transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-      className={`fixed bottom-20 right-5 z-30 flex h-12 w-12 items-center justify-center rounded-full text-white shadow-lg shadow-primary-500/30 ${GRADS[gradient]} ${className}`}
+      aria-label="新增"
+      className={`floating-action-button fixed right-5 z-30 flex h-12 w-12 items-center justify-center rounded-full text-white ${GRADS[gradient]} ${className}`}
     >
       {icon}
     </motion.button>

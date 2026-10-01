@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
       manifest: {
-        name: '记一记 - 记事记账本',
-        short_name: '记一记',
+        name: '鑫菲日记 - 记事记账本',
+        short_name: '鑫菲日记',
         description: '精致的个人记事+记账应用',
         theme_color: '#14b8a6',
         background_color: '#faf8f6',

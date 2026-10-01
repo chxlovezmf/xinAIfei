@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, PointElement, LineElement, Filler } from 'chart.js';
 import { Doughnut, Bar, Line } from 'react-chartjs-2';
@@ -33,6 +34,7 @@ function shuffleArray<T>(arr: T[]): T[] {
 }
 
 export default function Stats() {
+  const navigate = useNavigate();
   const { year: cy, month: cm } = getCurrentMonth();
   const [viewMode, setViewMode] = useState<'month' | 'range'>('month');
   const [year, setYear] = useState(cy);
@@ -235,7 +237,7 @@ export default function Stats() {
         { wch: 12 }, { wch: 8 }, { wch: 10 },
         { wch: 12 }, { wch: 20 }, { wch: 16 },
       ];
-      const fileName = `记一记_账目_${rangeStart}_${rangeEnd}.xlsx`;
+      const fileName = `鑫菲日记_账目_${rangeStart}_${rangeEnd}.xlsx`;
       XLSX.writeFile(wb, fileName);
       });
     }
@@ -365,23 +367,31 @@ export default function Stats() {
           <>
             {/* Summary Cards */}
             <div className="mb-4 flex gap-3">
-              <motion.div
+              <motion.button
+                type="button"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="grad-card grad-teal grad-animated flex-1 p-4"
+                whileTap={{ scale: 0.97 }}
+                onClick={() => navigate('/accounting?type=income')}
+                className="bubu-frame-card grad-card grad-teal grad-animated uiverse-glow-card flex-1 p-4 text-left"
+                title="查看收入账目"
               >
                 <p className="text-xs text-primary-100">总收入</p>
                 <p className="mt-1 text-xl font-bold"><AnimatedNumber value={totalIncome} format={(n) => '¥' + formatAmount(n)} /></p>
-              </motion.div>
-              <motion.div
+              </motion.button>
+              <motion.button
+                type="button"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.05 }}
-                className="grad-card grad-rose grad-animated flex-1 p-4"
+                whileTap={{ scale: 0.97 }}
+                onClick={() => navigate('/accounting?type=expense')}
+                className="bubu-frame-card grad-card grad-rose grad-animated uiverse-glow-card flex-1 p-4 text-left"
+                title="查看支出账目"
               >
                 <p className="text-xs text-red-100">总支出</p>
                 <p className="mt-1 text-xl font-bold"><AnimatedNumber value={totalExpense} format={(n) => '¥' + formatAmount(n)} /></p>
-              </motion.div>
+              </motion.button>
             </div>
 
             {/* Pie Chart */}

@@ -187,10 +187,6 @@ export async function deleteTask(id: number) {
   return db.tasks.delete(id);
 }
 
-export async function getTasksByDate(date: string) {
-  return db.tasks.where('date').equals(date).toArray();
-}
-
 export async function getAllTasks() {
   return db.tasks.orderBy('date').reverse().toArray();
 }

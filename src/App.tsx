@@ -35,6 +35,7 @@ export default function App() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    document.documentElement.dataset.theme = localStorage.getItem('theme') === 'bubu' ? 'bubu' : 'petal';
     initCategories().then(() => setReady(true));
   }, []);
 

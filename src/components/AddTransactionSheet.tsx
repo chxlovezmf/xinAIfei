@@ -2,8 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Delete, RotateCcw } from 'lucide-react';
 import type { Category } from '../types';
+import CategoryIcon from './CategoryIcon';
 import { getCategories, addTransaction, updateTransaction } from '../db/database';
 import { getTodayStr } from '../utils/format';
+import { getBubuCategoryArt } from '../utils/categoryArt';
 
 interface Props {
   open: boolean;
@@ -181,7 +183,7 @@ export default function AddTransactionSheet({ open, onClose, onSaved, editTx }: 
             animate={{ translateY: 0 }}
             exit={{ translateY: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed inset-x-0 bottom-0 z-[60] flex flex-col rounded-t-3xl border-t border-white/60 bg-white/95 dark:border-white/10 dark:bg-gray-900/95"
+            className="sheet-surface safe-area-bottom fixed inset-x-0 bottom-0 z-[60] flex flex-col rounded-t-3xl border-t"
             style={{ height: maxH, maxHeight: '95dvh' }}
           >
             {/* Header */}
@@ -258,7 +260,7 @@ export default function AddTransactionSheet({ open, onClose, onSaved, editTx }: 
                       type="date"
                       value={date}
                       onChange={(e) => setDate(e.target.value)}
-                      className="w-full rounded-xl border border-gray-200 bg-white px-3 py-3 text-sm text-gray-800 outline-none transition-all duration-200 focus:border-primary-400 focus:ring-2 focus:ring-primary-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:focus:border-primary-400 [color-scheme:light] dark:[color-scheme:dark]"
+                      className="input-field text-sm [color-scheme:light] dark:[color-scheme:dark]"
                     />
                   </div>
 
@@ -269,7 +271,7 @@ export default function AddTransactionSheet({ open, onClose, onSaved, editTx }: 
                           key={n}
                           whileTap={{ scale: 0.85 }}
                           onClick={() => handleCalculatorKey(String(n))}
-                          className="rounded-xl bg-gray-50 py-4 text-2xl font-semibold text-gray-800 transition-colors hover:bg-gray-100 dark:bg-gray-700/70 dark:text-gray-200"
+                          className="calculator-key"
                         >
                           {n}
                         </motion.button>
@@ -277,42 +279,42 @@ export default function AddTransactionSheet({ open, onClose, onSaved, editTx }: 
                       <motion.button
                         whileTap={{ scale: 0.85 }}
                         onClick={() => handleCalculatorKey('.')}
-                        className="rounded-xl bg-gray-50 py-4 text-2xl font-semibold text-gray-800 transition-colors hover:bg-gray-100 dark:bg-gray-700/70 dark:text-gray-200"
+                        className="calculator-key"
                       >
                         .
                       </motion.button>
                       <motion.button
                         whileTap={{ scale: 0.85 }}
                         onClick={() => handleCalculatorKey('0')}
-                        className="rounded-xl bg-gray-50 py-4 text-2xl font-semibold text-gray-800 transition-colors hover:bg-gray-100 dark:bg-gray-700/70 dark:text-gray-200"
+                        className="calculator-key"
                       >
                         0
                       </motion.button>
                       <motion.button
                         whileTap={{ scale: 0.85 }}
                         onClick={() => handleCalculatorKey('00')}
-                        className="rounded-xl bg-gray-50 py-4 text-2xl font-semibold text-gray-800 transition-colors hover:bg-gray-100 dark:bg-gray-700/70 dark:text-gray-200"
+                         className="calculator-key"
                       >
                         00
                       </motion.button>
                       <motion.button
                         whileTap={{ scale: 0.85 }}
                         onClick={() => handleCalculatorKey('backspace')}
-                        className="rounded-xl bg-gray-50 py-3 text-xl font-semibold text-gray-800 transition-colors hover:bg-gray-100 dark:bg-gray-700/70 dark:text-gray-200"
+                        className="calculator-key py-3 text-xl"
                       >
                         <Delete size={22} className="mx-auto" />
                       </motion.button>
                       {['+', '−', '×', '÷'].map((operator) => (
                         <motion.button key={operator} whileTap={{ scale: 0.85 }}
                           onClick={() => handleCalculatorKey(operator === '−' ? '-' : operator)}
-                          className="rounded-xl bg-primary-50 py-4 text-2xl font-semibold text-primary-700 transition-colors hover:bg-primary-100 dark:bg-primary-900/30 dark:text-primary-300"
+                          className="calculator-key calculator-key-operator"
                         >{operator}</motion.button>
                       ))}
                       <motion.button whileTap={{ scale: 0.85 }} onClick={() => handleCalculatorKey('clear')}
-                        className="rounded-xl bg-gray-100 py-4 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300"
+                        className="calculator-key calculator-key-muted"
                       ><RotateCcw size={18} className="mx-auto" /></motion.button>
                       <motion.button whileTap={{ scale: 0.85 }} onClick={() => handleCalculatorKey('=')}
-                        className="col-span-2 rounded-xl bg-primary-500 py-4 text-2xl font-semibold text-white transition-colors hover:bg-primary-600"
+                        className="calculator-key calculator-key-equals col-span-2"
                       >=</motion.button>
                     </div>
                     <button
@@ -337,37 +339,47 @@ export default function AddTransactionSheet({ open, onClose, onSaved, editTx }: 
 
                   <div className="flex-1 overflow-y-auto min-h-0 scrollbar-hide p-0.5">
                     <div className="grid grid-cols-4 gap-1.5 pb-4">
-                      {currentCategories.map((cat) => (
-                        <motion.button
-                          key={cat.id}
-                          whileTap={{ scale: 0.9 }}
-                          onClick={() => setCategoryId(cat.id!)}
-                          className={`flex flex-col items-center gap-1 rounded-lg p-2 transition-all ${
-                            categoryId === cat.id
-                              ? 'bg-primary-50 dark:bg-primary-900/30'
-                              : 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-700/70 dark:hover:bg-gray-600'
-                          }`}
-                        >
-                          <div className="relative">
-                            <motion.div animate={categoryId === cat.id ? { scale: 1.15 } : { scale: 1 }}
-                              transition={{ type: 'spring', stiffness: 400, damping: 18 }}
-                              className="h-5 w-5 rounded-full" style={{ backgroundColor: cat.color }} />
-                            {categoryId === cat.id && (
-                              <motion.div layoutId="sheet-cat-ring" transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                                className="absolute -inset-1.5 rounded-full border-2 border-primary-400" />
-                            )}
-                          </div>
-                          <span className="text-sm text-gray-600 dark:text-gray-300 text-center leading-tight">{cat.name}</span>
-                        </motion.button>
-                      ))}
+                      {currentCategories.map((cat) => {
+                        const isBubuTheme = document.documentElement.dataset.theme === 'bubu';
+                        const artPath = isBubuTheme
+                          ? getBubuCategoryArt(cat.type, cat.icon)
+                          : undefined;
+                        return (
+                          <motion.button
+                            key={cat.id}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={() => setCategoryId(cat.id!)}
+                            className={`flex flex-col items-center gap-1 rounded-lg p-2 transition-all ${
+                              categoryId === cat.id
+                                ? 'category-option-selected'
+                                : 'category-option'
+                            }`}
+                          >
+                            <div className="relative">
+                              <motion.div animate={categoryId === cat.id ? { scale: 1.15 } : { scale: 1 }}
+                                transition={{ type: 'spring', stiffness: 400, damping: 18 }}
+                                className="flex h-10 w-10 items-center justify-center">
+                                {artPath
+                                  ? <img src={artPath} alt="" className="h-full w-full object-contain" />
+                                  : <CategoryIcon iconName={cat.icon || 'circle'} color={cat.color} size={22} className="h-10 w-10 rounded-2xl" />}
+                              </motion.div>
+                              {categoryId === cat.id && (
+                                <motion.div layoutId="sheet-cat-ring" transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                                  className={`absolute ${artPath ? '-inset-1 rounded-full' : '-inset-1 rounded-2xl'} border-2 border-primary-400`} />
+                              )}
+                            </div>
+                            <span className="text-sm text-gray-600 dark:text-gray-300 text-center leading-tight">{cat.name}</span>
+                          </motion.button>
+                        );
+                      })}
                     </div>
                   </div>
 
                   <div className="flex shrink-0 gap-3 py-3 pb-[60px] border-t border-gray-100 dark:border-gray-700">
-                    <button onClick={() => setStep('amount')} className="btn-secondary flex-1">
+                    <button onClick={() => setStep('amount')} className="btn-secondary bubu-art-button-soft flex-1">
                       返回修改
                     </button>
-                    <button onClick={handleSave} disabled={!categoryId} className="btn-primary flex-1">
+                    <button onClick={handleSave} disabled={!categoryId} className="btn-primary bubu-art-button flex-1">
                       {editTx ? '保存修改' : '确认添加'}
                     </button>
                   </div>

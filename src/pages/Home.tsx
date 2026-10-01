@@ -12,30 +12,39 @@ import FloatingActionButton from '../components/FloatingActionButton';
 import { ListSkeleton, CardSkeleton } from '../components/Skeleton';
 import dayjs from 'dayjs';
 
+type CardBackground = { type: 'preset' | 'image'; value: string };
+
 const PRESET_BGS = [
-  { key: 'teal', name: '青绿', css: 'linear-gradient(135deg,#2dd4bf,#0f766e)' },
-  { key: 'purple', name: '紫韵', css: 'linear-gradient(135deg,#c084fc,#8b5cf6)' },
-  { key: 'rose', name: '玫瑰', css: 'linear-gradient(135deg,#fb7185,#e11d48)' },
-  { key: 'blue', name: '海蓝', css: 'linear-gradient(135deg,#60a5fa,#2563eb)' },
-  { key: 'amber', name: '落日', css: 'linear-gradient(135deg,#fbbf24,#f97316)' },
-  { key: 'emerald', name: '翠绿', css: 'linear-gradient(135deg,#34d399,#059669)' },
-  { key: 'indigo', name: '靛青', css: 'linear-gradient(135deg,#818cf8,#4f46e5)' },
-  { key: 'pink', name: '粉黛', css: 'linear-gradient(135deg,#f472b6,#db2777)' },
-  { key: 'slate', name: '星空', css: 'linear-gradient(135deg,#334155,#0f172a)' },
-  { key: 'orange', name: '暖阳', css: 'linear-gradient(135deg,#fdba74,#ea580c)' },
+  { key: 'bubu', name: '布布一二', css: "linear-gradient(90deg, rgba(75, 49, 38, 0.82), rgba(75, 49, 38, 0.12)), url('/themes/bubu/home-background.png') center 88% / cover no-repeat" },
+  { key: 'teal', name: '青绿', css: 'var(--gradient-teal)' },
+  { key: 'purple', name: '紫韵', css: 'var(--gradient-purple)' },
+  { key: 'rose', name: '玫瑰', css: 'var(--gradient-rose)' },
+  { key: 'blue', name: '海蓝', css: 'var(--gradient-blue)' },
+  { key: 'amber', name: '落日', css: 'var(--gradient-amber)' },
+  { key: 'emerald', name: '翠绿', css: 'var(--gradient-emerald)' },
+  { key: 'indigo', name: '靛青', css: 'var(--gradient-indigo)' },
+  { key: 'pink', name: '粉黛', css: 'var(--gradient-pink)' },
+  { key: 'slate', name: '星空', css: 'var(--gradient-slate)' },
+  { key: 'orange', name: '暖阳', css: 'var(--gradient-orange)' },
 ];
 
-const APP_VERSION = '1.4.1';
+const APP_VERSION = '1.5.1';
 
-function loadCardBg(): { type: 'preset' | 'image'; value: string } {
-  try { const raw = localStorage.getItem('cardBg'); if (raw) return JSON.parse(raw); } catch {}
+function loadCardBg(): CardBackground {
+  try {
+    const raw = localStorage.getItem('cardBg');
+    if (raw) {
+      const parsed = JSON.parse(raw) as CardBackground;
+      if (parsed.type === 'image' || !parsed.value.startsWith('bubu-card-')) return parsed;
+    }
+  } catch {}
   return { type: 'preset', value: 'teal' };
 }
 
-function resolveBgCss(bg: { type: 'preset' | 'image'; value: string }): string {
+function resolveBgCss(bg: CardBackground): string {
   if (bg.type === 'image') return "url('" + bg.value + "') center/cover no-repeat";
   const found = PRESET_BGS.find(b => b.key === bg.value);
-  return found ? found.css : 'linear-gradient(135deg,#2dd4bf,#0f766e)';
+  return found ? found.css : 'var(--gradient-teal)';
 }
 
 function compressImage(dataUrl: string, maxW: number, maxH: number, quality: number): Promise<string> {
@@ -66,7 +75,7 @@ export default function Home() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [cardTitle, setCardTitle] = useState<string>(() => localStorage.getItem('cardTitle') || '本月结余');
   const [editingTitle, setEditingTitle] = useState(false);
-  const [cardBg, setCardBg] = useState<{ type: 'preset' | 'image'; value: string }>(loadCardBg);
+  const [cardBg, setCardBg] = useState<CardBackground>(loadCardBg);
   const [showBgPicker, setShowBgPicker] = useState(false);
   const bgFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -98,7 +107,7 @@ export default function Home() {
     reader.readAsDataURL(file);
   };
 
-  const handleBgChange = (newBg: { type: 'preset' | 'image'; value: string }) => { setCardBg(newBg); setShowBgPicker(false); };
+  const handleBgChange = (newBg: CardBackground) => { setCardBg(newBg); setShowBgPicker(false); };
 
   const handleBgImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -118,6 +127,7 @@ export default function Home() {
   const monthExpense = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
   const monthIncome = transactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
   const recentTxs = [...transactions].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt)).slice(0, 5);
+  const isBubuCardBg = false;
 
   return (
     <PageTransition>
@@ -128,7 +138,7 @@ export default function Home() {
             <p className="text-xs text-gray-400">{dayjs().format('M月D日 dddd')}</p>
           </div>
           <div className="rounded-full bg-gradient-to-r from-primary-400 via-purple-400 to-pink-400 p-[2px] shadow-sm">
-            <button onClick={() => fileInputRef.current?.click()}
+            <button onClick={() => fileInputRef.current?.click()} aria-label="更换头像"
               className="group relative block h-10 w-10 overflow-hidden rounded-full bg-primary-100 transition-all dark:bg-primary-900/30">
               {avatarSrc ? <img src={avatarSrc} alt="头像" className="h-full w-full object-cover" />
                 : <div className="flex h-full w-full items-center justify-center text-primary-600 font-bold text-sm dark:text-primary-400">记</div>}
@@ -141,52 +151,64 @@ export default function Home() {
         {loading ? <div className="space-y-4"><CardSkeleton /><ListSkeleton count={3} /></div> : (
           <>
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-              className="relative mb-5 overflow-hidden rounded-3xl p-5 text-white shadow-lg" style={{ background: resolveBgCss(cardBg) }}>
+              className={`relative mb-5 overflow-hidden rounded-3xl p-5 shadow-lg ${isBubuCardBg ? 'text-[#49372e]' : 'text-white'}`} style={{ background: resolveBgCss(cardBg) }}>
               {cardBg.type === 'image' && <div className="absolute inset-0 bg-black/40" />}
-              <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/25 blur-2xl" />
-              <div className="absolute -bottom-12 -left-8 h-32 w-32 rounded-full bg-white/15 blur-2xl" />
-              <span className="absolute right-14 top-3 text-xl animate-float" style={{ animationDuration: '5s' }}>💖</span>
-              <span className="absolute bottom-16 left-4 text-lg animate-float" style={{ animationDuration: '7s', animationDelay: '1s' }}>✨</span>
+              {!isBubuCardBg && <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/25 blur-2xl" />}
+              {!isBubuCardBg && <div className="absolute -bottom-12 -left-8 h-32 w-32 rounded-full bg-white/15 blur-2xl" />}
+              {!isBubuCardBg && <span className="absolute right-14 top-3 text-xl animate-float" style={{ animationDuration: '5s' }}>💖</span>}
+              {!isBubuCardBg && <span className="absolute bottom-16 left-4 text-lg animate-float" style={{ animationDuration: '7s', animationDelay: '1s' }}>✨</span>}
               <div className="relative z-10">
                 {editingTitle ? (
                   <input type="text" value={cardTitle} onChange={e => setCardTitle(e.target.value)}
                     onBlur={() => setEditingTitle(false)} onKeyDown={e => e.key === 'Enter' && setEditingTitle(false)}
-                    className="w-full bg-white/20 rounded px-2 py-0.5 text-sm text-white outline-none placeholder-white/50" placeholder="输入标题" autoFocus />
+                    className={`w-full rounded px-2 py-0.5 text-sm outline-none ${isBubuCardBg ? 'bg-white/70 text-[#49372e] placeholder:text-[#9b8879]' : 'bg-white/20 text-white placeholder-white/50'}`} placeholder="输入标题" autoFocus />
                 ) : (
-                  <p className="text-sm text-primary-100 cursor-pointer hover:text-white transition-colors" onClick={() => setEditingTitle(true)} title="点击编辑标题">{cardTitle}</p>
+                  <p className={`cursor-pointer text-sm transition-colors ${isBubuCardBg ? 'text-[#856044] hover:text-[#49372e]' : 'text-primary-100 hover:text-white'}`} onClick={() => setEditingTitle(true)} title="点击编辑标题">{cardTitle}</p>
                 )}
                 <p className="mt-1 text-3xl font-bold tracking-tight">
                   {monthIncome - monthExpense >= 0 ? '' : '-'}<AnimatedNumber value={Math.abs(monthIncome - monthExpense)} format={formatAmount} />
                 </p>
                 <div className="mt-4 flex gap-3">
-                  <div className="flex items-center gap-1.5 rounded-2xl bg-white/20 px-3 py-1.5">
-                    <div className="rounded-full bg-white/25 p-1"><TrendingUp size={14} /></div>
-                    <div><p className="text-[11px] text-primary-100">收入</p><p className="text-sm font-semibold"><AnimatedNumber value={monthIncome} format={formatAmount} /></p></div>
-                  </div>
-                  <div className="flex items-center gap-1.5 rounded-2xl bg-white/20 px-3 py-1.5">
-                    <div className="rounded-full bg-white/25 p-1"><TrendingDown size={14} /></div>
-                    <div><p className="text-[11px] text-primary-100">支出</p><p className="text-sm font-semibold"><AnimatedNumber value={monthExpense} format={formatAmount} /></p></div>
-                  </div>
+                  <motion.button
+                    type="button"
+                    whileTap={{ scale: 0.96 }}
+                    onClick={() => navigate('/accounting?type=income')}
+                    className={`uiverse-glow-card flex flex-1 items-center gap-1.5 rounded-2xl px-3 py-1.5 text-left transition-colors ${isBubuCardBg ? 'bg-white/70 hover:bg-white/90' : 'bg-white/20 hover:bg-white/30'}`}
+                    title="查看收入账目"
+                  >
+                    <div className={`rounded-full p-1 ${isBubuCardBg ? 'bg-[#d9b18b]/40' : 'bg-white/25'}`}><TrendingUp size={14} /></div>
+                    <div><p className={`text-[11px] ${isBubuCardBg ? 'text-[#8d6b55]' : 'text-primary-100'}`}>收入</p><p className="text-sm font-semibold"><AnimatedNumber value={monthIncome} format={formatAmount} /></p></div>
+                  </motion.button>
+                  <motion.button
+                    type="button"
+                    whileTap={{ scale: 0.96 }}
+                    onClick={() => navigate('/accounting?type=expense')}
+                    className={`uiverse-glow-card flex flex-1 items-center gap-1.5 rounded-2xl px-3 py-1.5 text-left transition-colors ${isBubuCardBg ? 'bg-white/70 hover:bg-white/90' : 'bg-white/20 hover:bg-white/30'}`}
+                    title="查看支出账目"
+                  >
+                    <div className={`rounded-full p-1 ${isBubuCardBg ? 'bg-[#d9b18b]/40' : 'bg-white/25'}`}><TrendingDown size={14} /></div>
+                    <div><p className={`text-[11px] ${isBubuCardBg ? 'text-[#8d6b55]' : 'text-primary-100'}`}>支出</p><p className="text-sm font-semibold"><AnimatedNumber value={monthExpense} format={formatAmount} /></p></div>
+                  </motion.button>
                 </div>
-                <div className="mt-3 border-t border-white/25 pt-3">
-                  <div className="flex justify-between text-xs text-primary-100">
-                    <span>今日支出 <strong className="text-white"><AnimatedNumber value={todayExpense} format={formatAmount} /></strong></span>
-                    <span>今日收入 <strong className="text-white"><AnimatedNumber value={todayIncome} format={formatAmount} /></strong></span>
+                <div className={`mt-3 border-t pt-3 ${isBubuCardBg ? 'border-[#9b755d]/25' : 'border-white/25'}`}>
+                  <div className={`flex justify-between text-xs ${isBubuCardBg ? 'text-[#8d6b55]' : 'text-primary-100'}`}>
+                    <span>今日支出 <strong className={isBubuCardBg ? 'text-[#49372e]' : 'text-white'}><AnimatedNumber value={todayExpense} format={formatAmount} /></strong></span>
+                    <span>今日收入 <strong className={isBubuCardBg ? 'text-[#49372e]' : 'text-white'}><AnimatedNumber value={todayIncome} format={formatAmount} /></strong></span>
                   </div>
                 </div>
               </div>
-              <button onClick={e => { e.stopPropagation(); setShowBgPicker(true); }}
-                className="absolute top-3 right-3 z-20 rounded-full bg-white/25 p-1.5 text-white/90 hover:bg-white/35 hover:text-white transition-all" title="更换背景"><Image size={14} /></button>
+              <button onClick={e => { e.stopPropagation(); setShowBgPicker(true); }} aria-label="更换卡片背景"
+                className="absolute right-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white/25 text-white/90 transition-all hover:bg-white/35 hover:text-white" title="更换背景"><Image size={14} /></button>
             </motion.div>
 
             <AnimatePresence>{showBgPicker && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                 className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setShowBgPicker(false)}>
                 <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-                  className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl dark:bg-gray-800" onClick={e => e.stopPropagation()}>
+                  className="modal-surface w-full max-w-sm rounded-2xl border p-5 shadow-xl" onClick={e => e.stopPropagation()}>
                   <h3 className="mb-4 text-base font-bold text-gray-900 dark:text-gray-100">选择卡片背景</h3>
                   <div className="mb-4 grid grid-cols-5 gap-2">{PRESET_BGS.map(bg => (
-                    <button key={bg.key} onClick={() => handleBgChange({ type: 'preset', value: bg.key })}
+                    <button key={bg.key} onClick={() => handleBgChange({ type: 'preset', value: bg.key })} aria-label={`选择${bg.name}背景`}
                       className="group relative aspect-[3/2] rounded-xl overflow-hidden shadow-sm ring-2 ring-transparent transition-all hover:ring-primary-400 active:scale-95"
                       style={{ background: bg.css }} title={bg.name}>
                       {cardBg.type === 'preset' && cardBg.value === bg.key && <div className="absolute inset-0 flex items-center justify-center bg-black/20"><Check size={16} className="text-white drop-shadow" /></div>}

@@ -6,19 +6,36 @@ import type { Category } from "../types";
 import dayjs from "dayjs";
 import { getCategories, addCategory, deleteCategory, updateCategory, getAllTransactions, getAllNotes, getBalanceSnapshot, importData } from "../db/database";
 import { PageTransition } from "../components/Layout";
+import CategoryIcon from "../components/CategoryIcon";
+import CategoryIconPicker from "../components/CategoryIconPicker";
 import { useDarkMode } from "../hooks/useDarkMode";
 import { exportAllData, importAllData, getExportDataString, copyToClipboard, nativeExport, shareExportFile, listBackupFiles, readBackupFile, type BackupFileInfo } from "../utils/export";
+import { getBubuCategoryArt } from "../utils/categoryArt";
 
 const DEFAULT_CATEGORY_COLOR = '#14b8a6';
-const GENERIC_ICONS = ['more-horizontal','circle','box','tag','star','heart','zap','flag'];
-function getRandomIcon(): string { return GENERIC_ICONS[Math.floor(Math.random()*GENERIC_ICONS.length)]; }
+const DEFAULT_CATEGORY_ICON = 'utensils-crossed';
+
+function CategoryVisual({ category, theme }: { category: Category; theme: 'petal' | 'bubu' }) {
+  const artPath = theme === 'bubu' ? getBubuCategoryArt(category.type, category.icon) : undefined;
+  if (!artPath) {
+    return <CategoryIcon iconName={category.icon || 'circle'} color={category.color} size={15} className="h-8 w-8 shrink-0 rounded-xl" />;
+  }
+
+  return (
+    <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl" style={{ backgroundColor: `${category.color}20` }}>
+      <img src={artPath} alt="" className="h-full w-full object-contain" />
+    </span>
+  );
+}
 
 export default function Settings() {
   const { isDark, toggle } = useDarkMode();
+  const [appTheme, setAppTheme] = useState<'petal'|'bubu'>(() => localStorage.getItem('theme') === 'bubu' ? 'bubu' : 'petal');
   const [categories, setCategories] = useState<Category[]>([]);
   const [newCatName, setNewCatName] = useState("");
   const [newCatType, setNewCatType] = useState<"expense"|"income">("expense");
   const [newCatColor, setNewCatColor] = useState(DEFAULT_CATEGORY_COLOR);
+  const [newCatIcon, setNewCatIcon] = useState(DEFAULT_CATEGORY_ICON);
   const [importStatus, setImportStatus] = useState("");
   const [showAbout, setShowAbout] = useState(false);
   const [showPasteImport, setShowPasteImport] = useState(false);
@@ -28,6 +45,7 @@ export default function Settings() {
   const [editCat, setEditCat] = useState<Category|null>(null);
   const [editCatName, setEditCatName] = useState("");
   const [editCatColor, setEditCatColor] = useState("");
+  const [editCatIcon, setEditCatIcon] = useState(DEFAULT_CATEGORY_ICON);
   const [toast, setToast] = useState<{type:'success'|'error';message:string}|null>(null);
   const [storageSize, setStorageSize] = useState("");
   const [avatarSize, setAvatarSize] = useState("");
@@ -35,6 +53,11 @@ export default function Settings() {
 
   const showToast = (type:'success'|'error', message:string) => { setToast({type,message}); setTimeout(()=>setToast(null),3000); };
   const formatBytes = (b:number) => b<1024 ? b+' B' : b<1048576 ? (b/1024).toFixed(1)+' KB' : (b/1048576).toFixed(1)+' MB';
+  const selectAppTheme = (theme: 'petal'|'bubu') => {
+    setAppTheme(theme);
+    localStorage.setItem('theme', theme);
+    document.documentElement.dataset.theme = theme;
+  };
 
   useEffect(()=>{
     (async()=>{
@@ -49,8 +72,8 @@ export default function Settings() {
     })();
   },[]);
 
-  const APP_VERSION = '1.4.1';
-  const DEFAULT_ABOUT_TEXT = "想把和她的一辈子都记录在这里";
+  const APP_VERSION = '1.5.1';
+  const DEFAULT_ABOUT_TEXT = "记录生活，也记录每一笔。";
   if (localStorage.getItem('aboutTextVersion')!==APP_VERSION) { localStorage.removeItem('aboutText'); localStorage.setItem('aboutTextVersion',APP_VERSION); }
   const aboutText = localStorage.getItem("aboutText")||DEFAULT_ABOUT_TEXT;
   const [editAbout, setEditAbout] = useState("");
@@ -61,7 +84,7 @@ export default function Settings() {
   const handleExportToFile = async () => {
     const [txs,notes,cats,balance] = await Promise.all([getAllTransactions(),getAllNotes(),getCategories(),getBalanceSnapshot()]);
     const jsonStr = getExportDataString(txs, notes, cats, balance);
-    const fileName = `记一记_数据备份_${dayjs().format('YYYYMMDD_HHmmss')}.json`;
+    const fileName = `鑫菲日记_数据备份_${dayjs().format('YYYYMMDD_HHmmss')}.json`;
     const saved = await nativeExport(jsonStr, fileName);
     if (saved) {
       const shared = await shareExportFile(jsonStr, fileName);
@@ -120,8 +143,8 @@ export default function Settings() {
 
   const handleAddCategory = async () => {
     if(!newCatName.trim()) return;
-    await addCategory({name:newCatName.trim(),type:newCatType,icon:getRandomIcon(),color:newCatColor,order:99,preset:false});
-    setNewCatName(""); setNewCatColor(DEFAULT_CATEGORY_COLOR);
+    await addCategory({name:newCatName.trim(),type:newCatType,icon:newCatIcon,color:newCatColor,order:99,preset:false});
+    setNewCatName(""); setNewCatColor(DEFAULT_CATEGORY_COLOR); setNewCatIcon(DEFAULT_CATEGORY_ICON);
     setCategories(await getCategories());
   };
   const handleDeleteCategory = async (id:number) => {
@@ -133,10 +156,11 @@ export default function Settings() {
     setEditCat(cat);
     setEditCatName(cat.name);
     setEditCatColor(cat.color);
+    setEditCatIcon(cat.icon || 'circle');
   };
   const handleSaveCategoryEdit = async () => {
     if (!editCat || !editCat.id || !editCatName.trim()) return;
-    await updateCategory(editCat.id, { name: editCatName.trim(), color: editCatColor });
+    await updateCategory(editCat.id, { name: editCatName.trim(), color: editCatColor, icon: editCatIcon });
     setEditCat(null);
     setCategories(await getCategories());
     showToast('success','分类已更新');
@@ -149,6 +173,32 @@ export default function Settings() {
     <PageTransition>
       <div className="page-container">
         <h1 className="page-title mb-4 flex items-center gap-1.5"><span className="sticker-emoji text-base">🎀</span>设置</h1>
+
+        <div className="glass-card mb-3 p-4">
+          <div className="mb-3 flex items-center gap-3">
+            <div className="rounded-xl bg-gradient-to-br from-primary-400 to-primary-700 p-2 text-white shadow-sm"><Palette size={18}/></div>
+            <div><p className="text-sm font-medium text-gray-800 dark:text-gray-200">界面主题</p><p className="text-xs text-gray-400">只改变外观，不影响记录数据</p></div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" aria-pressed={appTheme==='petal'} onClick={()=>selectAppTheme('petal')}
+              className={`rounded-2xl border p-3 text-left transition-all ${appTheme==='petal'?'border-primary-400 bg-primary-50 ring-2 ring-primary-200':'control-surface border-gray-200 dark:border-gray-700'}`}>
+              <span className="mb-2 flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-pink-200 to-primary-500 text-lg">🌸</span>
+              <span className="block text-sm font-semibold text-gray-800 dark:text-gray-100">花漾粉</span>
+              <span className="mt-0.5 block text-[11px] text-gray-500 dark:text-gray-400">清爽柔和</span>
+            </button>
+            <button type="button" aria-pressed={appTheme==='bubu'} onClick={()=>selectAppTheme('bubu')}
+              className={`rounded-2xl border p-3 text-left transition-all ${appTheme==='bubu'?'border-primary-500 ring-2 ring-primary-200':'control-surface border-gray-200 dark:border-gray-700'}`}
+              style={appTheme==='bubu'?{backgroundImage:"linear-gradient(135deg, rgba(255,249,239,.88), rgba(239,225,205,.76)), url('/themes/bubu/home-background.png')",backgroundSize:'cover',backgroundPosition:'center'}:undefined}>
+              <span className="mb-2 flex h-8 w-12 items-center justify-center gap-0.5 rounded-xl bg-[#f2dfc7] px-1">
+                <img src="/themes/bubu/characters/white.png" alt="" className="h-7 w-5 object-contain" />
+                <img src="/themes/bubu/characters/brown.png" alt="" className="h-7 w-5 object-contain" />
+              </span>
+              <span className="block text-sm font-semibold text-gray-800 dark:text-gray-100">布布一二</span>
+              <span className="mt-0.5 block text-[11px] text-gray-500 dark:text-gray-400">奶油纸感 · 焦糖棕</span>
+            </button>
+          </div>
+          <p className="mt-2 text-[11px] text-gray-400">首页结余卡片还可单独选择布布一二背景。</p>
+        </div>
 
         <div className="glass-card mb-3 flex items-center justify-between p-4">
           <div className="flex items-center gap-3">
@@ -244,12 +294,16 @@ export default function Settings() {
                 ))}
               </div>
             </div>
+            <div>
+              <p className="mb-1 text-xs text-gray-400">选择图标</p>
+              <CategoryIconPicker value={newCatIcon} color={newCatColor} type={newCatType} showBubuArt={appTheme==='bubu'} onChange={setNewCatIcon} />
+            </div>
           </div>
           <div className="mb-2">
             <p className="mb-1 text-xs text-gray-400">支出分类</p>
             <div className="flex flex-wrap gap-2">{expenseCats.map(cat=>(
               <div key={cat.id} className="flex items-center gap-1.5 rounded-lg bg-gray-50 px-2.5 py-1.5 dark:bg-gray-700">
-                <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{backgroundColor:cat.color}}/>
+                <CategoryVisual category={cat} theme={appTheme} />
                 <span className="text-xs text-gray-700 dark:text-gray-300">{cat.name}</span>
                 <button onClick={()=>handleEditCategory(cat)} className="text-gray-400 hover:text-primary-500 ml-0.5"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
                 {!cat.preset&&<button onClick={()=>cat.id&&handleDeleteCategory(cat.id)} className="text-gray-400 hover:text-red-400 ml-0.5"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></button>}
@@ -260,7 +314,7 @@ export default function Settings() {
             <p className="mb-1 text-xs text-gray-400">收入分类</p>
             <div className="flex flex-wrap gap-2">{incomeCats.map(cat=>(
               <div key={cat.id} className="flex items-center gap-1.5 rounded-lg bg-gray-50 px-2.5 py-1.5 dark:bg-gray-700">
-                <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{backgroundColor:cat.color}}/>
+                <CategoryVisual category={cat} theme={appTheme} />
                 <span className="text-xs text-gray-700 dark:text-gray-300">{cat.name}</span>
                 <button onClick={()=>handleEditCategory(cat)} className="text-gray-400 hover:text-primary-500 ml-0.5"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
                 {!cat.preset&&<button onClick={()=>cat.id&&handleDeleteCategory(cat.id)} className="text-gray-400 hover:text-red-400 ml-0.5"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></button>}
@@ -271,12 +325,12 @@ export default function Settings() {
 
         <div className="glass-card flex items-center gap-3 p-4 cursor-pointer active:scale-[0.98] transition-transform" onClick={()=>{setShowAbout(true);setEditAbout(aboutText);setEditingAbout(false);}}>
           <div className="rounded-xl bg-gradient-to-br from-gray-400 to-gray-500 p-2 text-white shadow-sm"><Info size={18}/></div>
-          <div><p className="text-sm font-medium text-gray-800 dark:text-gray-200">关于鑫菲日记</p><p className="text-xs text-gray-400">版本 1.4</p></div>
+          <div><p className="text-sm font-medium text-gray-800 dark:text-gray-200">关于鑫菲日记</p><p className="text-xs text-gray-400">版本 1.5.1</p></div>
         </div>
 
         <AnimatePresence>{showPasteImport&&(
           <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={()=>setShowPasteImport(false)}>
-            <motion.div initial={{scale:0.9,opacity:0}} animate={{scale:1,opacity:1}} exit={{scale:0.9,opacity:0}} className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-800" onClick={e=>e.stopPropagation()}>
+            <motion.div initial={{scale:0.9,opacity:0}} animate={{scale:1,opacity:1}} exit={{scale:0.9,opacity:0}} className="modal-surface w-full max-w-sm rounded-2xl border p-6 shadow-xl" onClick={e=>e.stopPropagation()}>
               <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-1">粘贴导入</h3>
               <p className="text-xs text-gray-400 mb-3">复制备份的完整JSON内容，粘贴到下方文本框中</p>
               <textarea value={pasteText} onChange={e=>setPasteText(e.target.value)} className="input-field text-xs min-h-[200px] mb-3 font-mono leading-relaxed" placeholder='{"version":"1.0","transactions":[...]}'/>
@@ -290,7 +344,7 @@ export default function Settings() {
 
         <AnimatePresence>{showRestoreList&&(
           <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={()=>setShowRestoreList(false)}>
-            <motion.div initial={{scale:0.9,opacity:0}} animate={{scale:1,opacity:1}} exit={{scale:0.9,opacity:0}} className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-800 max-h-[70vh] overflow-y-auto" onClick={e=>e.stopPropagation()}>
+            <motion.div initial={{scale:0.9,opacity:0}} animate={{scale:1,opacity:1}} exit={{scale:0.9,opacity:0}} className="modal-surface max-h-[70vh] w-full max-w-sm overflow-y-auto rounded-2xl border p-6 shadow-xl" onClick={e=>e.stopPropagation()}>
               <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-1">从本地备份恢复</h3>
               <p className="text-xs text-gray-400 mb-3">选择手机 Documents 中的备份文件</p>
               {backupFiles.length===0?(
@@ -310,10 +364,12 @@ export default function Settings() {
 
         <AnimatePresence>{editCat&&(
           <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={()=>setEditCat(null)}>
-            <motion.div initial={{scale:0.9,opacity:0}} animate={{scale:1,opacity:1}} exit={{scale:0.9,opacity:0}} className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-800" onClick={e=>e.stopPropagation()}>
+            <motion.div initial={{scale:0.9,opacity:0}} animate={{scale:1,opacity:1}} exit={{scale:0.9,opacity:0}} className="modal-surface max-h-[85dvh] w-full max-w-sm overflow-y-auto rounded-2xl border p-6 shadow-xl" onClick={e=>e.stopPropagation()}>
               <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-3">编辑分类</h3>
               <p className="text-xs text-gray-400 mb-2">{editCat.preset?'预设分类':'自定义分类'} · {editCat.type==='expense'?'支出':'收入'}</p>
               <input type="text" value={editCatName} onChange={e=>setEditCatName(e.target.value)} placeholder="分类名称" className="input-field text-sm mb-3"/>
+              <p className="mb-1 text-xs text-gray-400">选择图标</p>
+              <CategoryIconPicker value={editCatIcon} color={editCatColor} type={editCat.type} showBubuArt={appTheme==='bubu'} onChange={setEditCatIcon} />
               <p className="mb-1 text-xs text-gray-400">选择颜色</p>
               <div className="flex items-center gap-2 mb-4">
                 <label className="relative flex h-8 w-8 cursor-pointer items-center justify-center overflow-hidden rounded-full shadow-sm transition-all active:scale-90" style={{ backgroundColor: editCatColor }}>
@@ -333,9 +389,9 @@ export default function Settings() {
 
         <AnimatePresence>{showAbout&&(
           <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={()=>setShowAbout(false)}>
-            <motion.div initial={{scale:0.9,opacity:0}} animate={{scale:1,opacity:1}} exit={{scale:0.9,opacity:0}} className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-800" onClick={e=>e.stopPropagation()}>
+            <motion.div initial={{scale:0.9,opacity:0}} animate={{scale:1,opacity:1}} exit={{scale:0.9,opacity:0}} className="modal-surface w-full max-w-sm rounded-2xl border p-6 shadow-xl" onClick={e=>e.stopPropagation()}>
               <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">鑫菲日记</h3>
-              <p className="text-xs text-gray-400 mb-4">版本 1.4</p>
+              <p className="text-xs text-gray-400 mb-4">版本 1.5.1</p>
               {editingAbout?(
                 <div>
                   <textarea value={editAbout} onChange={e=>setEditAbout(e.target.value)} className="input-field text-sm min-h-[80px] mb-2" autoFocus/>

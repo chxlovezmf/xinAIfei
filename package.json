@@ -1,9 +1,9 @@
 {
  "name": "jiyiji",
- "description": "记一记 - 记事记账本",
+ "description": "鑫菲日记 - 记事记账本",
  "license": "MIT",
  "private": true,
- "version": "1.4.1",
+ "version": "1.5.1",
  "type": "module",
  "scripts": {
   "dev": "vite",

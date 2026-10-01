@@ -1,7 +1,7 @@
-# 记一记 App — 版本更新修改指南
+# 鑫菲日记 App — 版本更新修改指南
 
 > 每次更新功能后，需要同步修改一些"版本/名称"相关的必要信息。本文档列出所有需要修改的位置、当前值，以及修改步骤。
-> 最后更新：2026-08-12（对应 v1.3）
+> 最后更新：2026-09-18（对应 v1.5.1）
 
 ---
 
@@ -9,14 +9,14 @@
 
 | 位置 | 文件 | 当前值 | 说明 |
 |---|---|---|---|
-| 1 | `package.json` | `"version": "1.1.0"` | npm 包版本号，PWA 构建会用它 |
-| 2 | `src/pages/Home.tsx:26` | `const APP_VERSION = '1.1.0';` | 首页"关于"卡片用的版本号 |
-| 3 | `src/pages/Settings.tsx:52` | `const APP_VERSION = '1.3.0';` | 设置页"关于鑫菲日记"用的版本号 |
-| 4 | `src/pages/Settings.tsx:262` | `版本 1.3` | 设置页列表里的版本文字（硬编码） |
-| 5 | `src/pages/Settings.tsx:321` | `版本 1.3` | "关于"弹窗里的版本文字（硬编码） |
-| 6 | `android/app/build.gradle` | `versionCode 1`、`versionName "1.3"` | Android 应用商店版本。`versionCode` 每次更新**必须 +1**，`versionName` 与上面保持一致 |
+| 1 | `package.json` | `"version": "1.5.1"` | npm 包版本号，PWA 构建会用它 |
+| 2 | `src/pages/Home.tsx:26` | `const APP_VERSION = '1.5.1';` | 首页本地版本迁移用的版本号 |
+| 3 | `src/pages/Settings.tsx:52` | `const APP_VERSION = '1.5.1';` | 设置页“关于鑫菲日记”用的版本号 |
+| 4 | `src/pages/Settings.tsx:274` | `版本 1.5.1` | 设置页列表里的版本文字（硬编码） |
+| 5 | `src/pages/Settings.tsx:337` | `版本 1.5.1` | "关于"弹窗里的版本文字（硬编码） |
+| 6 | `android/app/build.gradle` | `versionCode 4`、`versionName "1.5.1"` | Android 应用商店版本。`versionCode` 每次更新**必须 +1**，`versionName` 与上面保持一致 |
 
-> ⚠️ **注意**：目前 2、3 两个 `APP_VERSION` 值**不一致**（Home 是 1.1.0，Settings 是 1.3.0），这是历史遗留。建议更新时统一成同一个新版本号。
+> ⚠️ **注意**：Home 和 Settings 的 `APP_VERSION` 已统一；以后更新时请保持两处同步。
 >
 > ⚠️ `localStorage` 的 `aboutTextVersion` 机制：Settings 页检测到 `APP_VERSION` 变化时会清除用户自定义的"寄语"，恢复默认。这是设计行为，改版本号就会触发一次，属正常现象。
 
@@ -26,13 +26,13 @@
 
 | 位置 | 文件 | 当前值 | 说明 |
 |---|---|---|---|
-| 1 | `index.html` `<title>` | `记一记 - 记事记账本` | 浏览器标签页标题 |
-| 2 | `index.html` `apple-mobile-web-app-title` | `记一记` | iOS 添加到主屏幕显示名 |
-| 3 | `vite.config.ts` manifest | `name: '记一记 - 记事记账本'`、`short_name: '记一记'` | PWA 安装到桌面的显示名 |
+| 1 | `index.html` `<title>` | `鑫菲日记 - 记事记账本` | 浏览器标签页标题 |
+| 2 | `index.html` `apple-mobile-web-app-title` | `鑫菲日记` | iOS 添加到主屏幕显示名 |
+| 3 | `vite.config.ts` manifest | `name: '鑫菲日记 - 记事记账本'`、`short_name: '鑫菲日记'` | PWA 安装到桌面的显示名 |
 | 4 | `capacitor.config.ts` | `appName: '鑫菲日记'` | Android 原生 App 显示名 |
 | 5 | `src/pages/Home.tsx:125` | `鑫菲日记` | 首页大标题 |
-| 6 | `src/pages/Settings.tsx:262` / `:325` | `关于鑫菲日记` / `鑫菲日记` | 设置页标题与弹窗标题 |
-| 7 | `src/pages/Settings.tsx:55` | `DEFAULT_ABOUT_TEXT = "想把和她的一辈子都记录在这里"` | 默认寄语文案 |
+| 6 | `src/pages/Settings.tsx:274` / `:337` | `关于鑫菲日记` / `鑫菲日记` | 设置页标题与弹窗标题 |
+| 7 | `src/pages/Settings.tsx:55` | `DEFAULT_ABOUT_TEXT = "记录生活，也记录每一笔。"` | 默认寄语文案 |
 
 ---
 
@@ -87,4 +87,5 @@ this.version(2).stores({ ... });   // 后来加了 tasks 表
 - **硬编码的"版本 x.x"文字**：Settings.tsx 里有 2 处（262、321 行）是写死的字符串，只改 `APP_VERSION` 常量不会自动更新它们，需要手动一起改。
 - **两处 APP_VERSION 不一致**：Home.tsx 和 Settings.tsx 各定义了一份，建议以后收敛为单一来源（例如统一导入）。
 - **versionCode**：Android 发布更新时必须递增，否则商店/系统会认为是同一版本拒绝覆盖安装。
+- **备份文件名兼容**：新备份使用 `鑫菲日记_数据备份_` 前缀，恢复列表仍兼容旧的 `记一记_数据备份_` 前缀。
 - **备份文件里的 version 字段**（`src/utils/export.ts:113`）：`version: '1.0'` 是备份数据格式版本，**只有备份格式变了才改**，不要跟着 App 版本号走。
