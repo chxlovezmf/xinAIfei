@@ -9,3 +9,23 @@ android/captures/
 *.zip
 dev-server.log
 start.bat
+
+# Private user data and local credentials
+*_数据备份_*.json
+*.backup.json
+*.jiyiji-backup.json
+.env
+.env.*
+!.env.example
+*.keystore
+*.jks
+google-services.json
+.claude/settings.local.json
+
+# Local Android / release artifacts
+*.apk
+*.aab
+*.aar
+
+# Codex local inspection artifacts
+.codex-tmp/

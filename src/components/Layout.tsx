@@ -19,17 +19,21 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const currentPath = location.pathname || '/';
   const isNoteEditor = currentPath.startsWith('/notes/');
+  const themePage = currentPath === '/' ? 'home'
+    : currentPath.startsWith('/accounting') ? 'accounting'
+      : currentPath.startsWith('/notes') ? 'notes'
+        : currentPath.startsWith('/stats') ? 'stats' : 'settings';
 
   return (
     <div className="flex min-h-dvh flex-col">
       <AmbientBackground />
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto" data-theme-page={themePage}>
         {children}
       </main>
       {!isNoteEditor && (
-        <nav className="fixed bottom-0 left-0 right-0 z-50">
+        <nav className="safe-area-bottom fixed bottom-0 left-0 right-0 z-50">
           <div className="mx-auto max-w-lg px-3 pb-2 pt-1">
-            <div className="flex items-center justify-around rounded-full border border-white/60 bg-white/80 px-2 py-1 shadow-[0_8px_32px_rgba(251,94,141,0.12)] dark:border-white/10 dark:bg-gray-900/85">
+            <div className="bottom-nav-shell flex items-center justify-around rounded-full border px-2 py-1">
               {tabs.map((tab) => {
                 const isActive = currentPath === tab.path;
                 const Icon = tab.icon;
@@ -37,7 +41,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   <button
                     key={tab.key}
                     onClick={() => navigate(tab.path)}
-                    className={`relative flex flex-col items-center gap-0.5 rounded-xl px-4 py-1 transition-colors ${
+                    aria-current={isActive ? 'page' : undefined}
+                    className={`relative flex min-h-11 min-w-11 flex-col items-center justify-center gap-0.5 rounded-xl px-3 py-1 transition-colors ${
                       isActive ? 'text-white' : 'text-gray-400 dark:text-gray-500'
                     }`}
                   >

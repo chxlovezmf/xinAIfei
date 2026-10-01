@@ -3,6 +3,8 @@ import dayjs from 'dayjs';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 
+const BACKUP_FILE_PREFIXES = ['鑫菲日记_数据备份_', '记一记_数据备份_'];
+
 function downloadBlob(blob: Blob, fileName: string) {
   if ((navigator as any).share) {
     const file = new File([blob], fileName, { type: blob.type });
@@ -35,7 +37,7 @@ export async function exportToExcel(transactions: Transaction[], categories: Cat
   XLSX.utils.book_append_sheet(wb, ws, '账目明细');
   ws['!cols'] = [{ wch: 12 }, { wch: 8 }, { wch: 10 }, { wch: 12 }, { wch: 20 }, { wch: 16 }];
   const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-  downloadBlob(new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `记一记_账目_${year}年${month}月.xlsx`);
+  downloadBlob(new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `鑫菲日记_账目_${year}年${month}月.xlsx`);
 }
 
 // --- Capacitor native file export ---
@@ -72,7 +74,7 @@ export async function shareExportFile(jsonStr: string, fileName: string): Promis
       path: fileName,
       directory: Directory.Cache,
     });
-    await Share.share({ title: '记一记数据备份', url: result.uri });
+    await Share.share({ title: '鑫菲日记数据备份', url: result.uri });
     return true;
   } catch {
     return false;
@@ -115,7 +117,7 @@ export function getExportDataString(transactions: Transaction[], notes: any[], c
 
 export function exportAllData(transactions: Transaction[], notes: any[], categories: Category[], balance?: any) {
   const data = { version: '1.1', exportedAt: new Date().toISOString(), transactions, notes, categories, balance: balance || null };
-  downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), `记一记_数据备份_${dayjs().format('YYYYMMDD')}.json`);
+  downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), `鑫菲日记_数据备份_${dayjs().format('YYYYMMDD')}.json`);
 }
 
 export interface ImportData {
@@ -141,7 +143,7 @@ export async function listBackupFiles(): Promise<BackupFileInfo[]> {
   if (!isNative()) return [];
   try {
     const result = await Filesystem.readdir({ path: '', directory: Directory.Documents });
-    const files = result.files.filter(f => f.name.startsWith('记一记_数据备份_') && f.name.endsWith('.json') && f.type === 'file');
+    const files = result.files.filter(f => BACKUP_FILE_PREFIXES.some(prefix => f.name.startsWith(prefix)) && f.name.endsWith('.json') && f.type === 'file');
     return files.map(f => ({ name: f.name, path: f.name, size: f.size ?? 0, date: (f as any).mtime || '' }));
   } catch { return []; }
 }

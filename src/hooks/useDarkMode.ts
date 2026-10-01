@@ -9,6 +9,7 @@ export function useDarkMode() {
 
   useEffect(() => {
     localStorage.setItem('darkMode', String(isDark));
+    document.documentElement.dataset.theme = document.documentElement.dataset.theme || localStorage.getItem('theme') || 'petal';
     if (isDark) {
       document.documentElement.classList.add('dark');
     } else {

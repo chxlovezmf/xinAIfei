@@ -25,13 +25,13 @@ export default function MonthPicker({ year, month, onChange }: MonthPickerProps)
   return (
     <>
       <div className="glass-card relative flex items-center justify-between px-4 py-2.5">
-        <motion.button whileTap={{ scale: 0.85 }} onClick={prevMonth} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 active:scale-90 transition-all dark:hover:bg-gray-700">
+        <motion.button aria-label="上个月" whileTap={{ scale: 0.85 }} onClick={prevMonth} className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-gray-400 transition-all hover:bg-gray-100 active:scale-90 dark:hover:bg-gray-700">
           <ChevronLeft size={20} />
         </motion.button>
-        <button onClick={() => setShowPicker(!showPicker)} className="text-sm font-semibold text-gray-800 hover:text-primary-500 transition-colors dark:text-gray-200">
+        <button aria-label="选择月份" onClick={() => setShowPicker(!showPicker)} className="min-h-11 px-3 text-sm font-semibold text-gray-800 transition-colors hover:text-primary-500 dark:text-gray-200">
           {formatMonth(year, month)}
         </button>
-        <motion.button whileTap={{ scale: 0.85 }} onClick={nextMonth} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 active:scale-90 transition-all dark:hover:bg-gray-700">
+        <motion.button aria-label="下个月" whileTap={{ scale: 0.85 }} onClick={nextMonth} className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-gray-400 transition-all hover:bg-gray-100 active:scale-90 dark:hover:bg-gray-700">
           <ChevronRight size={20} />
         </motion.button>
       </div>
@@ -50,7 +50,7 @@ export default function MonthPicker({ year, month, onChange }: MonthPickerProps)
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-              className="w-full max-w-xs rounded-2xl bg-white p-4 shadow-xl dark:bg-gray-800"
+              className="modal-surface w-full max-w-xs rounded-2xl border p-4 shadow-xl"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="mb-3 flex items-center justify-between">
