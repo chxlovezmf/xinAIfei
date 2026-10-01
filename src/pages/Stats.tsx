@@ -373,11 +373,11 @@ export default function Stats() {
                 animate={{ opacity: 1, y: 0 }}
                 whileTap={{ scale: 0.97 }}
                 onClick={() => navigate('/accounting?type=income')}
-                className="bubu-frame-card grad-card grad-teal grad-animated uiverse-glow-card flex-1 p-4 text-left"
+                className="accounting-total-card accounting-total-card--income min-w-0 flex-1 p-3 text-left"
                 title="查看收入账目"
               >
-                <p className="text-xs text-primary-100">总收入</p>
-                <p className="mt-1 text-xl font-bold"><AnimatedNumber value={totalIncome} format={(n) => '¥' + formatAmount(n)} /></p>
+                <p className="text-xs opacity-75">总收入</p>
+                <p className="mt-1 text-lg font-bold"><AnimatedNumber value={totalIncome} format={(n) => '¥' + formatAmount(n)} /></p>
               </motion.button>
               <motion.button
                 type="button"
@@ -386,11 +386,11 @@ export default function Stats() {
                 transition={{ delay: 0.05 }}
                 whileTap={{ scale: 0.97 }}
                 onClick={() => navigate('/accounting?type=expense')}
-                className="bubu-frame-card grad-card grad-rose grad-animated uiverse-glow-card flex-1 p-4 text-left"
+                className="accounting-total-card accounting-total-card--expense min-w-0 flex-1 p-3 text-left"
                 title="查看支出账目"
               >
-                <p className="text-xs text-red-100">总支出</p>
-                <p className="mt-1 text-xl font-bold"><AnimatedNumber value={totalExpense} format={(n) => '¥' + formatAmount(n)} /></p>
+                <p className="text-xs opacity-75">总支出</p>
+                <p className="mt-1 text-lg font-bold"><AnimatedNumber value={totalExpense} format={(n) => '¥' + formatAmount(n)} /></p>
               </motion.button>
             </div>
 
