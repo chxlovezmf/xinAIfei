@@ -7,6 +7,7 @@ import { getAllNotes, addNote, deleteNote, updateNote, getAllTasks, addTask as d
 import { formatDateTime } from '../utils/format';
 import { PageTransition } from '../components/Layout';
 import EmptyState from '../components/EmptyState';
+import { ListSkeleton } from '../components/Skeleton';
 import dayjs from 'dayjs';
 
 export default function Notes() {
@@ -18,6 +19,7 @@ export default function Notes() {
     return tabParam === 'schedule' ? 'schedule' : 'diary';
   });
   const [notes, setNotes] = useState<Note[]>([]);
+  const [notesLoading, setNotesLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [quickNote, setQuickNote] = useState('');
 
@@ -25,13 +27,18 @@ export default function Notes() {
   const today = dayjs().format('YYYY-MM-DD');
   const [taskDate, setTaskDate] = useState(today);
   const [tasks, setTasks] = useState<TaskType[]>([]);
+  const [tasksLoading, setTasksLoading] = useState(true);
   const [newTask, setNewTask] = useState('');
   const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
   const [editingTaskText, setEditingTaskText] = useState('');
 
   const loadNotes = useCallback(async () => {
-    const all = await getAllNotes();
-    setNotes(all);
+    try {
+      const all = await getAllNotes();
+      setNotes(all);
+    } finally {
+      setNotesLoading(false);
+    }
     const saved = sessionStorage.getItem('notesScroll');
     if (saved) {
       sessionStorage.removeItem('notesScroll');
@@ -45,7 +52,11 @@ export default function Notes() {
   useEffect(() => { loadNotes(); }, [loadNotes]);
 
   const loadTasks = useCallback(async () => {
-    setTasks(await getAllTasks());
+    try {
+      setTasks(await getAllTasks());
+    } finally {
+      setTasksLoading(false);
+    }
   }, []);
 
   useEffect(() => { loadTasks(); }, [loadTasks]);
@@ -217,7 +228,7 @@ export default function Notes() {
                 aria-label="日程日期"
               />
             </label>
-            {tasks.length === 0 ? (
+            {tasksLoading ? <ListSkeleton /> : tasks.length === 0 ? (
               <EmptyState title="还没有任务" description="添加一个任务开始规划吧"
                 illustration={isBubuTheme ? '/themes/bubu/notes-empty.png' : undefined} />
             ) : (
@@ -285,7 +296,7 @@ export default function Notes() {
                 onKeyDown={(e) => e.key === 'Enter' && handleQuickNote()} placeholder="随手记..." className="input-field flex-1" />
               <button onClick={handleQuickNote} className="btn-primary px-4 text-sm">记</button>
             </div>
-            {filteredNotes.length === 0 ? (
+            {notesLoading ? <ListSkeleton /> : filteredNotes.length === 0 ? (
               <EmptyState icon={search ? <Search size={48} /> : <StickyNote size={48} />}
                 title={search ? '没有找到匹配的日记' : '还没有日记'}
                 description={search ? '换个关键词试试' : '随手记或写一篇长篇日记吧'}
