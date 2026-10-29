@@ -32,6 +32,13 @@ export interface Category {
   preset: boolean;
 }
 
+export type BudgetKey = 'clothing' | 'food' | 'housing' | 'transport';
+export interface BudgetConfig {
+  month: string;
+  limits: Record<BudgetKey, number | null>;
+  assignments: Record<string, BudgetKey>;
+}
+
 export interface Task {
   id?: number;
   text: string;

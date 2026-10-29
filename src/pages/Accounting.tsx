@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Plus, ArrowDownUp, Pencil, Trash2, Search, ListFilter, ChevronDown } from 'lucide-react';
@@ -12,6 +12,8 @@ import AnimatedNumber from '../components/AnimatedNumber';
 import FloatingActionButton from '../components/FloatingActionButton';
 import EmptyState from '../components/EmptyState';
 import { ListSkeleton } from '../components/Skeleton';
+import ConfirmDialog from '../components/ConfirmDialog';
+import MonthlyBudget from '../components/MonthlyBudget';
 import CategoryIcon from '../components/CategoryIcon';
 import { getBubuCategoryArt } from '../utils/categoryArt';
 import dayjs from 'dayjs';
@@ -40,29 +42,43 @@ export default function Accounting() {
   const [month, setMonth] = useState(cm);
   const [search, setSearch] = useState('');
   const [sortOption, setSortOption] = useState<SortOption>('date-desc');
+  const loadRequestRef = useRef(0);
+  const [deleteTarget, setDeleteTarget] = useState<Transaction | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const typeParam = searchParams.get('type');
   const typeFilter: 'all' | 'income' | 'expense' = typeParam === 'income' || typeParam === 'expense' ? typeParam : 'all';
 
   const loadData = useCallback(async (silent = false) => {
+    const requestId = ++loadRequestRef.current;
     if (!silent) setLoading(true);
-    const cats = await getCategories();
-    setCategories(cats);
-    let txs: Transaction[];
-    if (viewMode === 'month') {
-      txs = await getTransactionsByMonth(year, month);
-    } else {
-      txs = await getTransactionsByYear(year);
+    try {
+      const txsRequest = viewMode === 'month'
+        ? getTransactionsByMonth(year, month)
+        : getTransactionsByYear(year);
+      const [cats, txs] = await Promise.all([getCategories(), txsRequest]);
+      if (requestId !== loadRequestRef.current) return;
+      setCategories(cats);
+      setTransactions(txs);
+    } finally {
+      if (!silent && requestId === loadRequestRef.current) setLoading(false);
     }
-    setTransactions(txs);
-    if (!silent) setLoading(false);
   }, [year, month, viewMode]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const handleDelete = async (id: number) => {
-    if (window.confirm('确定要删除这条记录吗？')) {
-      await deleteTransaction(id);
-      loadData(true);
+  const handleDelete = (tx: Transaction) => {
+    setDeleteTarget(tx);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget?.id || deleting) return;
+    setDeleting(true);
+    try {
+      await deleteTransaction(deleteTarget.id);
+      setDeleteTarget(null);
+      await loadData(true);
+    } finally {
+      setDeleting(false);
     }
   };
   const handleEdit = (tx: Transaction) => {
@@ -114,10 +130,11 @@ export default function Accounting() {
   const sortedDates = Object.keys(grouped).sort((a, b) => sortOption === 'date-asc' ? a.localeCompare(b) : b.localeCompare(a));
   const filteredIncome = filtered.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
   const filteredExpense = filtered.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+  const isBubuTheme = document.documentElement.dataset.theme === 'bubu';
 
   const renderTransaction = (tx: Transaction, showDate = false) => {
     const cat = catMap.get(tx.categoryId);
-    const artPath = cat && document.documentElement.dataset.theme === 'bubu'
+    const artPath = cat && isBubuTheme
       ? getBubuCategoryArt(cat.type, cat.icon)
       : undefined;
     return (
@@ -143,8 +160,8 @@ export default function Accounting() {
             {tx.type==='expense'?'-':'+'}¥{formatAmount(tx.amount)}
           </span>
           {tx.note && <span className="max-w-[100px] truncate text-xs text-gray-400">{tx.note}</span>}
-          <button onClick={() => handleEdit(tx)} className="rounded-full bg-gray-100/80 p-1.5 text-gray-400 hover:bg-primary-100 hover:text-primary-500 dark:bg-gray-700/80 dark:hover:bg-gray-600"><Pencil size={14}/></button>
-          <button onClick={() => handleDelete(tx.id!)} className="rounded-full bg-gray-100/80 p-1.5 text-gray-400 hover:bg-red-100 hover:text-red-400 dark:bg-gray-700/80 dark:hover:bg-gray-600"><Trash2 size={14}/></button>
+          <button onClick={() => handleEdit(tx)} aria-label="编辑账目" className="rounded-full bg-gray-100/80 p-1.5 text-gray-400 hover:bg-primary-100 hover:text-primary-500 dark:bg-gray-700/80 dark:hover:bg-gray-600"><Pencil size={14}/></button>
+          <button onClick={() => handleDelete(tx)} aria-label="删除账目" className="rounded-full bg-gray-100/80 p-1.5 text-gray-400 hover:bg-red-100 hover:text-red-400 dark:bg-gray-700/80 dark:hover:bg-gray-600"><Trash2 size={14}/></button>
         </div>
       </motion.div>
     );
@@ -152,17 +169,20 @@ export default function Accounting() {
 
   return (
     <PageTransition>
-      <div className="page-container">
+      <div className="page-container" aria-busy={loading}>
         <div className="mb-4 flex items-center justify-between">
           <h1 className="flex items-center gap-1.5 page-title"><span className="sticker-emoji text-base">💰</span>记账</h1>
           <button
             onClick={() => setViewMode(viewMode === 'month' ? 'year' : 'month')}
             className="control-surface rounded-lg border p-2 text-gray-500 shadow-sm"
             title={viewMode === 'month' ? '按年查看' : '按月查看'}
+            aria-label={viewMode === 'month' ? '切换到按年查看' : '切换到按月查看'}
           >
             <ArrowDownUp size={18} />
           </button>
         </div>
+
+        <MonthlyBudget categories={categories} revision={loadRequestRef.current} />
 
         {viewMode === 'month' ? (
           <div className="mb-4"><MonthPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} /></div>
@@ -173,6 +193,7 @@ export default function Accounting() {
                 whileTap={{ scale: 0.88 }}
                 onClick={() => setYear(year - 1)}
                 className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                aria-label="上一年"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6"/></svg>
               </motion.button>
@@ -182,6 +203,7 @@ export default function Accounting() {
                 whileTap={{ scale: 0.88 }}
                 onClick={() => setYear(year + 1)}
                 className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                aria-label="下一年"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
               </motion.button>
@@ -259,7 +281,12 @@ export default function Accounting() {
         )}
 
         {loading ? <ListSkeleton count={5} /> : transactions.length === 0 ? (
-          <EmptyState title="暂无记录" description="点击右下角 + 记下第一笔吧" />
+          <EmptyState
+            title="暂无记录"
+            description="点击右下角 + 记下第一笔吧"
+            illustration={isBubuTheme ? '/themes/bubu/accounting-empty.webp' : undefined}
+            illustrationAlt={isBubuTheme ? '布布一二正在一起整理账目' : undefined}
+          />
         ) : filtered.length === 0 ? (
           <EmptyState icon={<Search size={48} />} title="没有找到匹配的记录" description="换个关键词试试" />
         ) : useDateGroups ? (
@@ -292,6 +319,15 @@ export default function Accounting() {
         <FloatingActionButton icon={<Plus size={24} />} onClick={() => { setEditTx(null); setShowSheet(true); }} gradient="primary" />
 
         <AddTransactionSheet open={showSheet} onClose={() => { setShowSheet(false); setEditTx(null); }} onSaved={() => loadData(true)} editTx={editTx} />
+        <ConfirmDialog
+          open={Boolean(deleteTarget)}
+          title="删除这笔账目？"
+          description={deleteTarget ? `将删除 ¥${formatAmount(deleteTarget.amount)} 的${deleteTarget.type === 'expense' ? '支出' : '收入'}记录，此操作无法撤销。` : undefined}
+          confirmLabel="删除"
+          busy={deleting}
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => !deleting && setDeleteTarget(null)}
+        />
       </div>
     </PageTransition>
   );

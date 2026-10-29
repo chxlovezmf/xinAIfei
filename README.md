@@ -1,75 +1,60 @@
-# 鑫菲日记 - 记事记账本使用说明
+# 鑫菲日记
 
-## 一、日常启动（浏览器版）
+**把生活的点滴与每一笔收支，记录在同一个地方。**
 
-在项目目录下打开终端，输入：
+鑫菲日记是一款面向日常使用的记事记账应用，可在浏览器中使用，也可打包为 Android 应用。数据保存在当前设备，支持手动导出和导入。
+
+[下载页面](https://github.com/chxlovezmf/xinAIfei/releases) · [功能介绍](#主要功能) · [运行项目](#运行项目) · [数据与备份](#数据与备份)
+
+## 主要功能
+
+- **记账**：记录收入和支出，支持自定义分类、图标与颜色，以及搜索、排序和按月或年查看。
+- **月度预算**：为衣、食、住、行设置额度，将支出分类关联到预算，查看已用、剩余和超额金额。
+- **记事**：记录日记和日程，支持日记搜索、置顶及日程完成状态。
+- **统计**：查看收支、分类占比和支出趋势，支持按月份或自定义日期范围查看，并导出账目表格。
+- **个性化**：支持花漾粉与布布一二主题、深色模式，以及自定义头像和首页卡片背景。
+
+## 安装与使用
+
+前往 [Releases](https://github.com/chxlovezmf/xinAIfei/releases) 查看可用的 Android 安装包和更新说明。若当前版本还没有安装包，可以按下方步骤自行构建。
+
+打开应用后，在「记账」页面右下角添加收支；展开「月度预算」可以设置额度和分类。关于买菜、日用品等如何分类，可查看预算中的「分类怎么记？」说明。
+
+## 数据与备份
+
+- 账目、日记、分类、余额和预算记录保存在当前设备；目前没有云同步。浏览器和 Android 应用各自保存数据，不会自动互通。
+- 可以在「设置 → 数据管理」中导出或导入备份。当前备份包含账目、日记、分类、余额和预算设置；**日程、头像和首页自定义设置暂不包含在备份中**。
+- 导入备份会替换设备上的相关数据；换手机、卸载或清除应用数据前，请先妥善保管备份文件。
+
+## 运行项目
+
+需要 Node.js 和 npm。在项目目录打开终端：
 
 ```bash
-npm run build && npm run preview
+npm install
 npm run dev
 ```
 
-终端会显示地址（如 `http://localhost:4173或http://localhost:5173/`），浏览器打开就能用。
+根据终端显示的本地地址，在浏览器打开应用。按 `Ctrl+C` 停止开发服务器。
 
-想关掉输入 `npx kill-port 4173或ctrl+c`。浏览器还显示页面没关系，那是缓存，端口已经关了。
-
----
-
-## 二、手机安装（APK 版）
-
-### 第一次打包 APK
-
-1. 打开 Android Studio
-2. 项目目录下的 `android` 文件夹 → 点"打开"
-3. 等右下角进度条跑完（第一次较慢，会下载依赖）
-4. 点顶部菜单：`Build → Build Bundle(s) / APK → Build APK`
-5. 完成后点通知里的 `locate`，或者去：
-   `android\app\build\outputs\apk\debug\app-debug.apk`
-6. 把这个 APK 传到手机安装
-
-### 修改后重新打包
-
-改了代码之后，按顺序执行：
+构建和预览：
 
 ```bash
-npm run build                   # 重新构建网页
-npx cap copy android            # 同步到安卓项目
-cd android && ./gradlew assembleDebug
+npm run build
+npm run preview
 ```
 
-然后打开 Android Studio，先点击 `Build → Clean Project（清理缓存，确保不复用旧文件）` 再点击 `Build → Build APK`，等一会就生成新的安装包了。
+### 构建 Android 版本
 
-传到手机上安装，会提示"是否更新？"，点是就行，数据不会丢。
-
----
-
-## 三、项目结构速览
-
-| 文件夹/文件 | 作用 |
-|---|---|
-| `src/pages/` | 各个页面（首页、记账、记事、统计、设置） |
-| `src/components/` | 按钮、弹窗等界面零件 |
-| `src/db/` | 数据存储逻辑 |
-| `src/types/` | 数据类型定义 |
-| `src/utils/` | 辅助功能（格式化、导出 Excel） |
-| `android/` | Android 项目（打包时打开这个） |
-| `dist/` | 构建后的网页文件（自动生成，不用管） |
-
----
-
-## 四、常用命令
+安装 Android Studio 和项目所需的 Android SDK 后，在项目目录执行：
 
 ```bash
-npm run dev       # 启动开发服务器（改代码时实时预览）
-npm run build     # 构建项目（生成 dist/ 文件夹）
-npm run preview   # 预览构建后的版本
+npm run build
+npx cap copy android
 ```
 
----
+随后用 Android Studio 打开 `android` 目录，等待 Gradle 同步完成，通过 **Build → Build Bundle(s) / APK(s) → Build APK(s)** 生成调试安装包。更改 Capacitor 插件或原生依赖后，应使用 `npx cap sync android` 同步。
 
-## 五、注意事项
+## 技术组成
 
-- APK 里的数据和浏览器版的数据**不互通**，各存各的
-- 覆盖安装 APK 不会丢失数据
-- 如果你换了手机，目前没有云同步，数据需要手动从旧手机导出再导入新手机（设置页有导入导出功能）
-- 如果想加新功能或修 Bug，到 `src/` 下找到对应的页面文件修改就行
+React、TypeScript、Vite、Tailwind CSS、Dexie（IndexedDB）、Chart.js 和 Capacitor。

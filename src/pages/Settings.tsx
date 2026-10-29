@@ -4,16 +4,18 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Sun, Moon, Database, Download, Upload, Palette, Info, HardDrive, CheckCircle, XCircle } from "lucide-react";
 import type { Category } from "../types";
 import dayjs from "dayjs";
-import { getCategories, addCategory, deleteCategory, updateCategory, getAllTransactions, getAllNotes, getBalanceSnapshot, importData } from "../db/database";
+import { getCategories, addCategory, deleteCategory, updateCategory, getAllTransactions, getAllNotes, getBalanceSnapshot, getAllBudgets, importData } from "../db/database";
 import { PageTransition } from "../components/Layout";
 import CategoryIcon from "../components/CategoryIcon";
 import CategoryIconPicker from "../components/CategoryIconPicker";
 import { useDarkMode } from "../hooks/useDarkMode";
 import { exportAllData, importAllData, getExportDataString, copyToClipboard, nativeExport, shareExportFile, listBackupFiles, readBackupFile, type BackupFileInfo } from "../utils/export";
 import { getBubuCategoryArt } from "../utils/categoryArt";
+import { version as APP_VERSION } from '../../package.json';
 
 const DEFAULT_CATEGORY_COLOR = '#14b8a6';
 const DEFAULT_CATEGORY_ICON = 'utensils-crossed';
+const DEFAULT_ABOUT_TEXT = '想把和她的一辈子都记录在这里';
 
 function CategoryVisual({ category, theme }: { category: Category; theme: 'petal' | 'bubu' }) {
   const artPath = theme === 'bubu' ? getBubuCategoryArt(category.type, category.icon) : undefined;
@@ -50,6 +52,7 @@ export default function Settings() {
   const [storageSize, setStorageSize] = useState("");
   const [avatarSize, setAvatarSize] = useState("");
   const [bgSize, setBgSize] = useState("");
+  const [aboutText] = useState(() => localStorage.getItem('aboutText') || DEFAULT_ABOUT_TEXT);
 
   const showToast = (type:'success'|'error', message:string) => { setToast({type,message}); setTimeout(()=>setToast(null),3000); };
   const formatBytes = (b:number) => b<1024 ? b+' B' : b<1048576 ? (b/1024).toFixed(1)+' KB' : (b/1048576).toFixed(1)+' MB';
@@ -63,6 +66,7 @@ export default function Settings() {
     (async()=>{
       try {
         const [txs,notes,cats] = await Promise.all([getAllTransactions(),getAllNotes(),getCategories()]);
+        setCategories(cats);
         const dbBytes = new TextEncoder().encode(JSON.stringify({transactions:txs,notes:notes,categories:cats})).length;
         setStorageSize(formatBytes(dbBytes));
         const av = localStorage.getItem('avatar')||'', bg = localStorage.getItem('cardBg')||'';
@@ -72,18 +76,12 @@ export default function Settings() {
     })();
   },[]);
 
-  const APP_VERSION = '1.5.1';
-  const DEFAULT_ABOUT_TEXT = "记录生活，也记录每一笔。";
-  if (localStorage.getItem('aboutTextVersion')!==APP_VERSION) { localStorage.removeItem('aboutText'); localStorage.setItem('aboutTextVersion',APP_VERSION); }
-  const aboutText = localStorage.getItem("aboutText")||DEFAULT_ABOUT_TEXT;
   const [editAbout, setEditAbout] = useState("");
   const [editingAbout, setEditingAbout] = useState(false);
 
-  useEffect(()=>{ getCategories().then(setCategories); },[]);
-
   const handleExportToFile = async () => {
-    const [txs,notes,cats,balance] = await Promise.all([getAllTransactions(),getAllNotes(),getCategories(),getBalanceSnapshot()]);
-    const jsonStr = getExportDataString(txs, notes, cats, balance);
+    const [txs,notes,cats,balance,budgets] = await Promise.all([getAllTransactions(),getAllNotes(),getCategories(),getBalanceSnapshot(),getAllBudgets()]);
+    const jsonStr = getExportDataString(txs, notes, cats, balance, budgets);
     const fileName = `鑫菲日记_数据备份_${dayjs().format('YYYYMMDD_HHmmss')}.json`;
     const saved = await nativeExport(jsonStr, fileName);
     if (saved) {
@@ -94,13 +92,13 @@ export default function Settings() {
         showToast('success','备份已保存到"文档"文件夹，打开手机"文件管理"可找到');
       }
     } else {
-      exportAllData(txs,notes,cats,balance);
+      exportAllData(txs,notes,cats,balance,budgets);
       showToast('success','文件已下载到本地');
     }
   };
   const handleExportToClipboard = async () => {
-    const [txs,notes,cats,balance] = await Promise.all([getAllTransactions(),getAllNotes(),getCategories(),getBalanceSnapshot()]);
-    const jsonStr = getExportDataString(txs, notes, cats, balance);
+    const [txs,notes,cats,balance,budgets] = await Promise.all([getAllTransactions(),getAllNotes(),getCategories(),getBalanceSnapshot(),getAllBudgets()]);
+    const jsonStr = getExportDataString(txs, notes, cats, balance, budgets);
     const ok = await copyToClipboard(jsonStr);
     if (ok) {
       showToast('success','数据已复制到剪贴板，粘贴到备忘录等地方保存即可');
@@ -116,13 +114,13 @@ export default function Settings() {
       // Remove BOM if present
       const cleanText = text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text;
       const data = importAllData(cleanText);
-      if(data) { await importData(data); setImportStatus("发现 "+data.transactions.length+" 条账目、"+data.notes.length+" 条笔记、"+data.categories.length+" 个分类"); showToast('success','数据导入成功'); }
+      if(data) { if (!data.budgets && !window.confirm('此旧备份不包含预算。导入会替换当前数据并清除当前预算设置，是否继续？')) return; await importData(data); setCategories(await getCategories()); setImportStatus("发现 "+data.transactions.length+" 条账目、"+data.notes.length+" 条笔记、"+data.categories.length+" 个分类"); showToast('success','数据导入成功'); }
       else { setImportStatus("文件格式不正确，请检查备份文件"); showToast('error','文件格式不正确'); }
     }; input.click();
   };
   const handlePasteImportConfirm = async () => {
     const data = importAllData(pasteText);
-    if(data) { await importData(data); setImportStatus("发现 "+data.transactions.length+" 条账目、"+data.notes.length+" 条笔记、"+data.categories.length+" 个分类"); showToast('success','数据导入成功'); setShowPasteImport(false); setPasteText(""); }
+    if(data) { if (!data.budgets && !window.confirm('此旧备份不包含预算。导入会替换当前数据并清除当前预算设置，是否继续？')) return; await importData(data); setCategories(await getCategories()); setImportStatus("发现 "+data.transactions.length+" 条账目、"+data.notes.length+" 条笔记、"+data.categories.length+" 个分类"); showToast('success','数据导入成功'); setShowPasteImport(false); setPasteText(""); }
     else { showToast('error','粘贴内容不是有效的备份数据，请检查是否完整复制了全部JSON'); }
   };
   const handleShowRestore = async () => {
@@ -136,7 +134,9 @@ export default function Settings() {
     if (!text) { showToast('error','无法读取备份文件'); return; }
     const data = importAllData(text);
     if (!data) { showToast('error','文件内容格式不正确'); return; }
+    if (!data.budgets && !window.confirm('此旧备份不包含预算。恢复会替换当前数据并清除当前预算设置，是否继续？')) return;
     await importData(data);
+    setCategories(await getCategories());
     setImportStatus("发现 "+data.transactions.length+" 条账目、"+data.notes.length+" 条笔记、"+data.categories.length+" 个分类");
     showToast('success','数据恢复成功');
   };
@@ -188,7 +188,7 @@ export default function Settings() {
             </button>
             <button type="button" aria-pressed={appTheme==='bubu'} onClick={()=>selectAppTheme('bubu')}
               className={`rounded-2xl border p-3 text-left transition-all ${appTheme==='bubu'?'border-primary-500 ring-2 ring-primary-200':'control-surface border-gray-200 dark:border-gray-700'}`}
-              style={appTheme==='bubu'?{backgroundImage:"linear-gradient(135deg, rgba(255,249,239,.88), rgba(239,225,205,.76)), url('/themes/bubu/home-background.png')",backgroundSize:'cover',backgroundPosition:'center'}:undefined}>
+              style={appTheme==='bubu'?{backgroundImage:"linear-gradient(135deg, rgba(255,249,239,.88), rgba(239,225,205,.76)), url('/themes/bubu/home-background.webp')",backgroundSize:'cover',backgroundPosition:'center'}:undefined}>
               <span className="mb-2 flex h-8 w-12 items-center justify-center gap-0.5 rounded-xl bg-[#f2dfc7] px-1">
                 <img src="/themes/bubu/characters/white.png" alt="" className="h-7 w-5 object-contain" />
                 <img src="/themes/bubu/characters/brown.png" alt="" className="h-7 w-5 object-contain" />
@@ -205,7 +205,7 @@ export default function Settings() {
             <div className="rounded-xl bg-gradient-to-br from-primary-500 to-purple-500 p-2 text-white shadow-sm">{isDark?<Moon size={18}/>:<Sun size={18}/>}</div>
             <div><p className="text-sm font-medium text-gray-800 dark:text-gray-200">深色模式</p><p className="text-xs text-gray-400">切换界面主题</p></div>
           </div>
-          <button onClick={toggle} className={"relative h-7 w-12 rounded-full transition-colors "+(isDark?"bg-gradient-to-r from-primary-500 to-purple-500":"bg-gray-300")}>
+          <button onClick={toggle} aria-label={isDark ? '关闭深色模式' : '开启深色模式'} aria-pressed={isDark} className={"relative h-7 w-12 rounded-full transition-colors "+(isDark?"bg-gradient-to-r from-primary-500 to-purple-500":"bg-gray-300")}>
             <motion.div animate={{ x: isDark ? 20 : 0 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}
               className="absolute left-0.5 top-0.5 h-6 w-6 rounded-full bg-white shadow-sm" />
           </button>
@@ -236,7 +236,7 @@ export default function Settings() {
             </div>
             <button onClick={()=>{
               if(window.confirm('确定要清除所有数据吗？此操作不可恢复！\n\n建议先导出备份再清除。')) {
-                import('../db/database').then(async({db})=>{await db.transactions.clear();await db.notes.clear();await db.categories.clear();await db.tasks.clear();await db.balanceSnapshots.clear();
+                import('../db/database').then(async({db})=>{await db.transactions.clear();await db.notes.clear();await db.categories.clear();await db.tasks.clear();await db.balanceSnapshots.clear();await db.budgets.clear();
                   const{initCategories}=await import('../db/database');await initCategories();
                   showToast('success','数据已清除，请在手机设置中清除应用缓存后重新打开');
                 });
@@ -288,7 +288,7 @@ export default function Settings() {
                   '#3b82f6','#1d4ed8','#f59e0b','#d97706','#22c55e','#047857',
                   '#ef4444','#b91c1c','#6366f1','#4338ca','#06b6d4','#0e7490',
                 ].map(c => (
-                  <button key={c} onClick={() => setNewCatColor(c)}
+                  <button key={c} onClick={() => setNewCatColor(c)} aria-label={`选择颜色 ${c}`} aria-pressed={newCatColor===c}
                     className={"h-7 w-7 rounded-full shadow-sm transition-all active:scale-90 "+(newCatColor===c?'ring-2 ring-offset-2 ring-primary-400 dark:ring-offset-gray-900':'hover:scale-110')}
                     style={{ backgroundColor: c }} />
                 ))}
@@ -305,8 +305,8 @@ export default function Settings() {
               <div key={cat.id} className="flex items-center gap-1.5 rounded-lg bg-gray-50 px-2.5 py-1.5 dark:bg-gray-700">
                 <CategoryVisual category={cat} theme={appTheme} />
                 <span className="text-xs text-gray-700 dark:text-gray-300">{cat.name}</span>
-                <button onClick={()=>handleEditCategory(cat)} className="text-gray-400 hover:text-primary-500 ml-0.5"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-                {!cat.preset&&<button onClick={()=>cat.id&&handleDeleteCategory(cat.id)} className="text-gray-400 hover:text-red-400 ml-0.5"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></button>}
+                <button onClick={()=>handleEditCategory(cat)} aria-label="编辑分类" className="text-gray-400 hover:text-primary-500 ml-0.5"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                {!cat.preset&&<button onClick={()=>cat.id&&handleDeleteCategory(cat.id)} aria-label="删除分类" className="text-gray-400 hover:text-red-400 ml-0.5"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></button>}
               </div>
             ))}</div>
           </div>
@@ -316,8 +316,8 @@ export default function Settings() {
               <div key={cat.id} className="flex items-center gap-1.5 rounded-lg bg-gray-50 px-2.5 py-1.5 dark:bg-gray-700">
                 <CategoryVisual category={cat} theme={appTheme} />
                 <span className="text-xs text-gray-700 dark:text-gray-300">{cat.name}</span>
-                <button onClick={()=>handleEditCategory(cat)} className="text-gray-400 hover:text-primary-500 ml-0.5"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-                {!cat.preset&&<button onClick={()=>cat.id&&handleDeleteCategory(cat.id)} className="text-gray-400 hover:text-red-400 ml-0.5"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></button>}
+                <button onClick={()=>handleEditCategory(cat)} aria-label="编辑分类" className="text-gray-400 hover:text-primary-500 ml-0.5"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                {!cat.preset&&<button onClick={()=>cat.id&&handleDeleteCategory(cat.id)} aria-label="删除分类" className="text-gray-400 hover:text-red-400 ml-0.5"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></button>}
               </div>
             ))}</div>
           </div>
@@ -325,7 +325,7 @@ export default function Settings() {
 
         <div className="glass-card flex items-center gap-3 p-4 cursor-pointer active:scale-[0.98] transition-transform" onClick={()=>{setShowAbout(true);setEditAbout(aboutText);setEditingAbout(false);}}>
           <div className="rounded-xl bg-gradient-to-br from-gray-400 to-gray-500 p-2 text-white shadow-sm"><Info size={18}/></div>
-          <div><p className="text-sm font-medium text-gray-800 dark:text-gray-200">关于鑫菲日记</p><p className="text-xs text-gray-400">版本 1.5.1</p></div>
+          <div><p className="text-sm font-medium text-gray-800 dark:text-gray-200">关于鑫菲日记</p><p className="text-xs text-gray-400">版本 {APP_VERSION}</p></div>
         </div>
 
         <AnimatePresence>{showPasteImport&&(
@@ -391,7 +391,7 @@ export default function Settings() {
           <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={()=>setShowAbout(false)}>
             <motion.div initial={{scale:0.9,opacity:0}} animate={{scale:1,opacity:1}} exit={{scale:0.9,opacity:0}} className="modal-surface w-full max-w-sm rounded-2xl border p-6 shadow-xl" onClick={e=>e.stopPropagation()}>
               <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">鑫菲日记</h3>
-              <p className="text-xs text-gray-400 mb-4">版本 1.5.1</p>
+              <p className="text-xs text-gray-400 mb-4">版本 {APP_VERSION}</p>
               {editingAbout?(
                 <div>
                   <textarea value={editAbout} onChange={e=>setEditAbout(e.target.value)} className="input-field text-sm min-h-[80px] mb-2" autoFocus/>

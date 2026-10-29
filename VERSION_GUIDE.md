@@ -1,7 +1,7 @@
 # 鑫菲日记 App — 版本更新修改指南
 
 > 每次更新功能后，需要同步修改一些"版本/名称"相关的必要信息。本文档列出所有需要修改的位置、当前值，以及修改步骤。
-> 最后更新：2026-09-18（对应 v1.5.1）
+> 最后更新：2026-10-29（对应 v1.6.0）
 
 ---
 
@@ -9,16 +9,11 @@
 
 | 位置 | 文件 | 当前值 | 说明 |
 |---|---|---|---|
-| 1 | `package.json` | `"version": "1.5.1"` | npm 包版本号，PWA 构建会用它 |
-| 2 | `src/pages/Home.tsx:26` | `const APP_VERSION = '1.5.1';` | 首页本地版本迁移用的版本号 |
-| 3 | `src/pages/Settings.tsx:52` | `const APP_VERSION = '1.5.1';` | 设置页“关于鑫菲日记”用的版本号 |
-| 4 | `src/pages/Settings.tsx:274` | `版本 1.5.1` | 设置页列表里的版本文字（硬编码） |
-| 5 | `src/pages/Settings.tsx:337` | `版本 1.5.1` | "关于"弹窗里的版本文字（硬编码） |
-| 6 | `android/app/build.gradle` | `versionCode 4`、`versionName "1.5.1"` | Android 应用商店版本。`versionCode` 每次更新**必须 +1**，`versionName` 与上面保持一致 |
+| 1 | `package.json` | `"version": "1.6.0"` | 应用版本；设置页直接读取此值 |
+| 2 | `package-lock.json` | 根项目版本 `1.6.0` | 与 `package.json` 保持一致，不修改依赖自身的版本 |
+| 3 | `android/app/build.gradle` | `versionCode 5`、`versionName "1.6.0"` | Android 版本；发布新版本时递增 versionCode，versionName 与应用版本一致 |
 
-> ⚠️ **注意**：Home 和 Settings 的 `APP_VERSION` 已统一；以后更新时请保持两处同步。
->
-> ⚠️ `localStorage` 的 `aboutTextVersion` 机制：Settings 页检测到 `APP_VERSION` 变化时会清除用户自定义的"寄语"，恢复默认。这是设计行为，改版本号就会触发一次，属正常现象。
+> 设置页版本号来自 `package.json`。升级版本不会清除用户自定义寄语。
 
 ---
 
@@ -32,7 +27,7 @@
 | 4 | `capacitor.config.ts` | `appName: '鑫菲日记'` | Android 原生 App 显示名 |
 | 5 | `src/pages/Home.tsx:125` | `鑫菲日记` | 首页大标题 |
 | 6 | `src/pages/Settings.tsx:274` / `:337` | `关于鑫菲日记` / `鑫菲日记` | 设置页标题与弹窗标题 |
-| 7 | `src/pages/Settings.tsx:55` | `DEFAULT_ABOUT_TEXT = "记录生活，也记录每一笔。"` | 默认寄语文案 |
+| 7 | `src/pages/Settings.tsx` | `想把和她的一辈子都记录在这里` | 默认寄语文案，已有自定义寄语优先显示 |
 
 ---
 
@@ -64,8 +59,7 @@ this.version(2).stores({ ... });   // 后来加了 tasks 表
 
 1. **写代码**：实现新功能。
 2. **更新数据库版本**（如有结构变更）→ 见第三节。
-3. **改版本号**：同步修改第一节第 1、2、3、4、5、6 项。
-   - 建议：Home 和 Settings 的 `APP_VERSION` 统一为一个新值。
+3. **改版本号**：同步修改第一节的项目版本、锁文件根版本和 Android 版本。
    - `android/app/build.gradle` 的 `versionCode` **必须 +1**（商店发布强制），`versionName` 保持一致。
 4. **改名称/文案**（如有需要）→ 见第二节。
 5. **本地验证**：
@@ -84,8 +78,7 @@ this.version(2).stores({ ... });   // 后来加了 tasks 表
 
 ## 六、易漏点提醒
 
-- **硬编码的"版本 x.x"文字**：Settings.tsx 里有 2 处（262、321 行）是写死的字符串，只改 `APP_VERSION` 常量不会自动更新它们，需要手动一起改。
-- **两处 APP_VERSION 不一致**：Home.tsx 和 Settings.tsx 各定义了一份，建议以后收敛为单一来源（例如统一导入）。
+- **设置页版本**：直接读取 `package.json`，不用再分别修改两处显示文字。
 - **versionCode**：Android 发布更新时必须递增，否则商店/系统会认为是同一版本拒绝覆盖安装。
 - **备份文件名兼容**：新备份使用 `鑫菲日记_数据备份_` 前缀，恢复列表仍兼容旧的 `记一记_数据备份_` 前缀。
-- **备份文件里的 version 字段**（`src/utils/export.ts:113`）：`version: '1.0'` 是备份数据格式版本，**只有备份格式变了才改**，不要跟着 App 版本号走。
+- **备份文件里的 version 字段**（`src/utils/export.ts`）：当前 `1.2` 是备份数据格式版本，只有备份格式变了才改，不跟随 App 版本号。

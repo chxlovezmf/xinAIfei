@@ -15,7 +15,7 @@ import dayjs from 'dayjs';
 type CardBackground = { type: 'preset' | 'image'; value: string };
 
 const PRESET_BGS = [
-  { key: 'bubu', name: '布布一二', css: "linear-gradient(90deg, rgba(75, 49, 38, 0.82), rgba(75, 49, 38, 0.12)), url('/themes/bubu/home-background.png') center 88% / cover no-repeat" },
+  { key: 'bubu', name: '布布一二', css: "linear-gradient(90deg, rgba(255, 248, 238, 0.96), rgba(255, 248, 238, 0.34)), url('/themes/bubu/home-background.webp') center 88% / cover no-repeat" },
   { key: 'teal', name: '青绿', css: 'var(--gradient-teal)' },
   { key: 'purple', name: '紫韵', css: 'var(--gradient-purple)' },
   { key: 'rose', name: '玫瑰', css: 'var(--gradient-rose)' },
@@ -27,8 +27,6 @@ const PRESET_BGS = [
   { key: 'slate', name: '星空', css: 'var(--gradient-slate)' },
   { key: 'orange', name: '暖阳', css: 'var(--gradient-orange)' },
 ];
-
-const APP_VERSION = '1.5.1';
 
 function loadCardBg(): CardBackground {
   try {
@@ -78,21 +76,22 @@ export default function Home() {
   const [cardBg, setCardBg] = useState<CardBackground>(loadCardBg);
   const [showBgPicker, setShowBgPicker] = useState(false);
   const bgFileInputRef = useRef<HTMLInputElement>(null);
+  const loadRequestRef = useRef(0);
 
   useEffect(() => { localStorage.setItem('avatar', avatarSrc); }, [avatarSrc]);
   useEffect(() => { localStorage.setItem('cardTitle', cardTitle); }, [cardTitle]);
   useEffect(() => { localStorage.setItem('cardBg', JSON.stringify(cardBg)); }, [cardBg]);
-  useEffect(() => {
-    const savedVer = localStorage.getItem('appVersion');
-    if (savedVer !== APP_VERSION) { localStorage.removeItem('aboutText'); localStorage.setItem('appVersion', APP_VERSION); }
-  }, []);
-
   const loadData = useCallback(async () => {
+    const requestId = ++loadRequestRef.current;
     setLoading(true);
-    const [txs, allNotes] = await Promise.all([getTransactionsByMonth(year, month), getAllNotes()]);
-    setTransactions(txs);
-    setNotes(allNotes.slice(0, 5));
-    setLoading(false);
+    try {
+      const [txs, allNotes] = await Promise.all([getTransactionsByMonth(year, month), getAllNotes()]);
+      if (requestId !== loadRequestRef.current) return;
+      setTransactions(txs);
+      setNotes(allNotes.slice(0, 5));
+    } finally {
+      if (requestId === loadRequestRef.current) setLoading(false);
+    }
   }, [year, month]);
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -127,11 +126,11 @@ export default function Home() {
   const monthExpense = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
   const monthIncome = transactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
   const recentTxs = [...transactions].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt)).slice(0, 5);
-  const isBubuCardBg = false;
+  const isBubuCardBg = cardBg.type === 'preset' && cardBg.value === 'bubu';
 
   return (
     <PageTransition>
-      <div className="page-container">
+      <div className="page-container" aria-busy={loading}>
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h1 className="flex items-center gap-1.5 text-lg font-bold text-gray-900 dark:text-gray-100"><span className="sticker-emoji text-base">📓</span>鑫菲日记</h1>

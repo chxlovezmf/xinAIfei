@@ -11,6 +11,7 @@ dev-server.log
 start.bat
 
 # Private user data and local credentials
+/主题图片素材/
 *_数据备份_*.json
 *.backup.json
 *.jiyiji-backup.json

@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { Transaction, Note, Category, Task, BalanceSnapshot } from '../types';
+import type { Transaction, Note, Category, Task, BalanceSnapshot, BudgetConfig } from '../types';
 import { presetCategories } from './categories';
 
 export class AppDatabase extends Dexie {
@@ -8,6 +8,7 @@ export class AppDatabase extends Dexie {
   categories!: Table<Category, number>;
   tasks!: Table<Task, number>;
   balanceSnapshots!: Table<BalanceSnapshot, number>;
+  budgets!: Table<BudgetConfig, string>;
 
   constructor() {
     super('jiyiji');
@@ -29,27 +30,51 @@ export class AppDatabase extends Dexie {
       tasks: '++id, date, done, createdAt',
       balanceSnapshots: 'id, effectiveAt',
     });
+    this.version(4).stores({ budgets: 'month' });
   }
 }
 
 export const db = new AppDatabase();
 
+let categoriesCache: Category[] | null = null;
+let categoriesRequest: Promise<Category[]> | null = null;
+let categoriesCacheRevision = 0;
+
+export function invalidateCategoriesCache() {
+  categoriesCacheRevision += 1;
+  categoriesCache = null;
+  categoriesRequest = null;
+}
+
 // Initialize preset categories if not already present
-export async function importData(data: { transactions: any[]; notes: any[]; categories: any[]; balance?: BalanceSnapshot | null }) {
+export async function importData(data: { transactions: any[]; notes: any[]; categories: any[]; balance?: BalanceSnapshot | null; budgets?: BudgetConfig[] }) {
+  await db.transaction('rw', [db.transactions, db.notes, db.categories, db.balanceSnapshots, db.budgets], async () => {
   await db.transactions.clear();
   await db.notes.clear();
   await db.categories.clear();
   await db.balanceSnapshots.clear();
+  await db.budgets.clear();
   if (data.transactions.length) await db.transactions.bulkAdd(data.transactions);
   if (data.notes.length) await db.notes.bulkAdd(data.notes);
   if (data.categories.length) await db.categories.bulkAdd(data.categories);
   if (data.balance && Number.isFinite(data.balance.amount) && data.balance.effectiveAt) {
     await db.balanceSnapshots.put({ id: 1, amount: data.balance.amount, effectiveAt: data.balance.effectiveAt });
   }
+  if (data.budgets?.length) await db.budgets.bulkAdd(data.budgets);
   // Re-init presets if no categories were imported
   const count = await db.categories.count();
   if (count === 0) await initCategories();
+  });
+  invalidateCategoriesCache();
 }
+
+export async function getBudgetForMonth(month: string) {
+  return db.budgets.where('month').belowOrEqual(month).last();
+}
+
+export async function getAllBudgets() { return db.budgets.toArray(); }
+
+export async function saveBudget(config: BudgetConfig) { await db.budgets.put(config); }
 
 export async function getBalanceSnapshot() {
   return db.balanceSnapshots.get(1);
@@ -75,6 +100,7 @@ export async function initCategories() {
       presetCategories.map((c, idx) => ({ ...c, id: idx + 1 } as Category))
     );
   }
+  invalidateCategoriesCache();
 }
 
 export async function addTransaction(tx: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>) {
@@ -154,19 +180,35 @@ export async function getAllNotes() {
 
 // Category CRUD
 export async function getCategories() {
-  return db.categories.orderBy('order').toArray();
+  if (categoriesCache) return categoriesCache;
+  if (categoriesRequest) return categoriesRequest;
+
+  const requestRevision = categoriesCacheRevision;
+  categoriesRequest = db.categories.orderBy('order').toArray().then((categories) => {
+    if (requestRevision === categoriesCacheRevision) categoriesCache = categories;
+    return categories;
+  }).finally(() => {
+    categoriesRequest = null;
+  });
+  return categoriesRequest;
 }
 
 export async function addCategory(cat: Omit<Category, 'id'>) {
-  return db.categories.add(cat as Category);
+  const result = await db.categories.add(cat as Category);
+  invalidateCategoriesCache();
+  return result;
 }
 
 export async function updateCategory(id: number, cat: Partial<Category>) {
-  return db.categories.update(id, cat);
+  const result = await db.categories.update(id, cat);
+  invalidateCategoriesCache();
+  return result;
 }
 
 export async function deleteCategory(id: number) {
-  return db.categories.delete(id);
+  const result = await db.categories.delete(id);
+  invalidateCategoriesCache();
+  return result;
 }
 
 export async function getCategoryById(id: number | undefined) {

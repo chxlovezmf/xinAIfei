@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 3px solid var(--theme-primary);
+  outline-offset: 2px;
+}
+
 /* 主题令牌：未来切换主题时只需覆盖 [data-theme] 下的变量。 */
 :root,
 [data-theme='petal'] {
@@ -61,47 +70,57 @@
 
 [data-theme='bubu'] {
   color-scheme: light;
-  --primary-50: 252 246 235;
-  --primary-100: 247 232 208;
-  --primary-200: 237 207 169;
-  --primary-300: 222 177 131;
-  --primary-400: 200 143 96;
-  --primary-500: 169 111 73;
-  --primary-600: 142 89 59;
-  --primary-700: 116 70 48;
-  --primary-800: 91 55 39;
-  --primary-900: 67 42 33;
-  --theme-bg: #fff9ef;
-  --theme-surface: rgba(255, 253, 248, 0.88);
+  --primary-50: 255 247 239;
+  --primary-100: 255 235 218;
+  --primary-200: 250 210 181;
+  --primary-300: 235 174 137;
+  --primary-400: 207 132 95;
+  --primary-500: 177 103 72;
+  --primary-600: 145 78 55;
+  --primary-700: 116 61 45;
+  --primary-800: 87 48 38;
+  --primary-900: 57 35 30;
+  --theme-bg: #fff8ee;
+  --theme-surface: rgba(255, 253, 248, 0.9);
   --theme-surface-solid: #fffdf8;
-  --theme-surface-muted: rgba(248, 240, 226, 0.9);
+  --theme-surface-muted: rgba(250, 239, 226, 0.92);
   --theme-border: rgba(255, 255, 255, 0.82);
-  --theme-border-muted: #eadccc;
-  --theme-text: #49372e;
-  --theme-muted: #9b8879;
-  --theme-primary: #a96f49;
-  --theme-primary-strong: #86573b;
-  --theme-primary-soft: #f7ead8;
-  --theme-primary-shadow: rgba(152, 100, 64, 0.22);
-  --theme-shadow: 0 8px 28px rgba(105, 73, 52, 0.1);
-  --theme-nav-bg: rgba(255, 253, 248, 0.9);
-  --theme-scrollbar: #d8c8b8;
-  --theme-orb-a: radial-gradient(circle at 60% 40%, rgba(211, 188, 148, 0.32), transparent 70%);
-  --theme-orb-b: radial-gradient(circle at 40% 60%, rgba(161, 188, 157, 0.3), transparent 70%);
-  --theme-particle: rgba(169, 111, 73, 0.28);
-  --theme-glow-a: rgba(169, 111, 73, 0.045);
-  --theme-glow-b: rgba(161, 188, 157, 0.055);
-  --theme-glow-c: rgba(239, 197, 127, 0.055);
-  --theme-glow-d: rgba(161, 188, 157, 0.045);
-  --theme-pattern: rgba(169, 111, 73, 0.045);
-  --gradient-primary: linear-gradient(135deg, #d7ad83, #9b6746);
-  --gradient-text: linear-gradient(120deg, #9b6746, #c38a68, #d5b977);
-  --accounting-income-bg: #e8eee2;
-  --accounting-income-text: #53694d;
-  --accounting-expense-bg: #f5e7dc;
-  --accounting-expense-text: #8d6047;
-  --accounting-balance-bg: #f2eadc;
-  --accounting-balance-text: #70583e;
+  --theme-border-muted: #ead8c5;
+  --theme-text: #49362d;
+  --theme-muted: #9b8778;
+  --theme-primary: #b87352;
+  --theme-primary-strong: #96553d;
+  --theme-primary-soft: #fae9d9;
+  --theme-primary-shadow: rgba(157, 92, 62, 0.2);
+  --theme-shadow: 0 8px 24px rgba(104, 68, 47, 0.1);
+  --theme-nav-bg: rgba(255, 253, 248, 0.94);
+  --theme-scrollbar: #d7c2ae;
+  --theme-orb-a: radial-gradient(circle at 60% 40%, rgba(249, 189, 169, 0.28), transparent 70%);
+  --theme-orb-b: radial-gradient(circle at 40% 60%, rgba(166, 190, 146, 0.25), transparent 70%);
+  --theme-particle: rgba(184, 117, 82, 0.22);
+  --theme-glow-a: rgba(249, 189, 169, 0.1);
+  --theme-glow-b: rgba(166, 190, 146, 0.1);
+  --theme-glow-c: rgba(247, 205, 123, 0.1);
+  --theme-glow-d: rgba(164, 202, 230, 0.08);
+  --theme-pattern: rgba(159, 111, 82, 0.055);
+  --gradient-primary: linear-gradient(135deg, #d98d68, #ad674a);
+  --gradient-teal: linear-gradient(135deg, #a8c7a0, #6d9d83);
+  --gradient-purple: linear-gradient(135deg, #cbb9d8, #9f83b8);
+  --gradient-rose: linear-gradient(135deg, #f4b0a7, #d98782);
+  --gradient-blue: linear-gradient(135deg, #a7cde5, #79a8c1);
+  --gradient-amber: linear-gradient(135deg, #f4d07f, #dfa45d);
+  --gradient-emerald: linear-gradient(135deg, #b1d0ac, #82ae8b);
+  --gradient-indigo: linear-gradient(135deg, #a7b9d9, #7088b6);
+  --gradient-pink: linear-gradient(135deg, #f3b2c4, #d888a4);
+  --gradient-slate: linear-gradient(135deg, #8e817a, #5b514b);
+  --gradient-orange: linear-gradient(135deg, #f1bc88, #d78252);
+  --gradient-text: linear-gradient(120deg, #9a5a43, #d18462, #c9a45b);
+  --accounting-income-bg: #e6eee0;
+  --accounting-income-text: #5d795b;
+  --accounting-expense-bg: #f8e2dc;
+  --accounting-expense-text: #9d5b4d;
+  --accounting-balance-bg: #f2e8d8;
+  --accounting-balance-text: #7c624a;
 }
 
 .dark {
@@ -134,11 +153,33 @@
 }
 
 .dark[data-theme='bubu'] {
-  --accounting-income-bg: rgba(112, 132, 89, 0.22);
+  color-scheme: dark;
+  --theme-bg: #29221f;
+  --theme-surface: rgba(58, 47, 41, 0.92);
+  --theme-surface-solid: #3a2f29;
+  --theme-surface-muted: rgba(73, 57, 48, 0.92);
+  --theme-border: rgba(255, 231, 214, 0.12);
+  --theme-border-muted: #604b3f;
+  --theme-text: #f7eadf;
+  --theme-muted: #c4aa98;
+  --theme-primary: #d49b79;
+  --theme-primary-strong: #e4b193;
+  --theme-primary-soft: rgba(212, 155, 121, 0.18);
+  --theme-primary-shadow: rgba(212, 155, 121, 0.2);
+  --theme-shadow: 0 8px 32px rgba(20, 13, 10, 0.42);
+  --theme-nav-bg: rgba(54, 43, 38, 0.94);
+  --theme-scrollbar: #745b4c;
+  --theme-particle: rgba(241, 193, 142, 0.28);
+  --theme-glow-a: rgba(212, 155, 121, 0.05);
+  --theme-glow-b: rgba(166, 190, 146, 0.045);
+  --theme-glow-c: rgba(247, 205, 123, 0.04);
+  --theme-glow-d: rgba(164, 202, 230, 0.035);
+  --theme-pattern: rgba(255, 231, 214, 0.055);
+  --accounting-income-bg: rgba(112, 132, 89, 0.24);
   --accounting-income-text: #d5e7c6;
-  --accounting-expense-bg: rgba(163, 101, 75, 0.24);
+  --accounting-expense-bg: rgba(163, 101, 75, 0.27);
   --accounting-expense-text: #f0c7ad;
-  --accounting-balance-bg: rgba(169, 111, 73, 0.2);
+  --accounting-balance-bg: rgba(169, 111, 73, 0.24);
   --accounting-balance-text: #f1dcbe;
 }
 
@@ -147,7 +188,7 @@
 }
 
 [data-theme='bubu'] main[data-theme-page='home'] {
-  background-image: linear-gradient(rgba(255, 250, 241, 0.48), rgba(255, 250, 241, 0.48)), url('/themes/bubu/home-background.png');
+  background-image: linear-gradient(rgba(255, 250, 241, 0.54), rgba(255, 250, 241, 0.54)), url('/themes/bubu/home-background.webp');
   background-attachment: fixed;
   background-position: top center;
   background-repeat: no-repeat;
@@ -155,7 +196,7 @@
 }
 
 [data-theme='bubu'] main[data-theme-page='settings'] {
-  background-image: linear-gradient(rgba(255, 250, 241, 0.42), rgba(255, 250, 241, 0.42)), url('/themes/bubu/interior-background.png');
+  background-image: linear-gradient(rgba(255, 250, 241, 0.58), rgba(255, 250, 241, 0.58)), url('/themes/bubu/interior-background.webp');
   background-attachment: fixed;
   background-position: top center;
   background-repeat: no-repeat;
@@ -163,7 +204,7 @@
 }
 
 [data-theme='bubu'] main[data-theme-page='accounting'] {
-  background-image: linear-gradient(rgba(255, 250, 241, 0.42), rgba(255, 250, 241, 0.42)), url('/themes/bubu/accounting-background.png'), url('/themes/bubu/interior-background.png');
+  background-image: linear-gradient(rgba(255, 250, 241, 0.56), rgba(255, 250, 241, 0.56)), url('/themes/bubu/accounting-background.webp'), url('/themes/bubu/interior-background.webp');
   background-attachment: fixed;
   background-position: top center;
   background-repeat: no-repeat;
@@ -171,7 +212,7 @@
 }
 
 [data-theme='bubu'] main[data-theme-page='notes'] {
-  background-image: linear-gradient(rgba(255, 250, 241, 0.42), rgba(255, 250, 241, 0.42)), url('/themes/bubu/notes-background.png'), url('/themes/bubu/interior-background.png');
+  background-image: linear-gradient(rgba(255, 250, 241, 0.56), rgba(255, 250, 241, 0.56)), url('/themes/bubu/notes-background.webp'), url('/themes/bubu/interior-background.webp');
   background-attachment: fixed;
   background-position: top center;
   background-repeat: no-repeat;
@@ -179,7 +220,7 @@
 }
 
 [data-theme='bubu'] main[data-theme-page='stats'] {
-  background-image: linear-gradient(rgba(255, 250, 241, 0.42), rgba(255, 250, 241, 0.42)), url('/themes/bubu/stats-background.png'), url('/themes/bubu/interior-background.png');
+  background-image: linear-gradient(rgba(255, 250, 241, 0.56), rgba(255, 250, 241, 0.56)), url('/themes/bubu/stats-background.webp'), url('/themes/bubu/interior-background.webp');
   background-attachment: fixed;
   background-position: top center;
   background-repeat: no-repeat;
@@ -187,23 +228,23 @@
 }
 
 .dark[data-theme='bubu'] main[data-theme-page='home'] {
-  background-image: linear-gradient(rgba(26, 24, 23, 0.88), rgba(26, 24, 23, 0.88)), url('/themes/bubu/home-background.png');
+  background-image: linear-gradient(rgba(47, 37, 32, 0.84), rgba(47, 37, 32, 0.84)), url('/themes/bubu/home-background.webp');
 }
 
 .dark[data-theme='bubu'] main[data-theme-page='settings'] {
-  background-image: linear-gradient(rgba(26, 24, 23, 0.88), rgba(26, 24, 23, 0.88)), url('/themes/bubu/interior-background.png');
+  background-image: linear-gradient(rgba(47, 37, 32, 0.86), rgba(47, 37, 32, 0.86)), url('/themes/bubu/interior-background.webp');
 }
 
 .dark[data-theme='bubu'] main[data-theme-page='accounting'] {
-  background-image: linear-gradient(rgba(26, 24, 23, 0.88), rgba(26, 24, 23, 0.88)), url('/themes/bubu/accounting-background.png'), url('/themes/bubu/interior-background.png');
+  background-image: linear-gradient(rgba(47, 37, 32, 0.86), rgba(47, 37, 32, 0.86)), url('/themes/bubu/accounting-background.webp'), url('/themes/bubu/interior-background.webp');
 }
 
 .dark[data-theme='bubu'] main[data-theme-page='notes'] {
-  background-image: linear-gradient(rgba(26, 24, 23, 0.88), rgba(26, 24, 23, 0.88)), url('/themes/bubu/notes-background.png'), url('/themes/bubu/interior-background.png');
+  background-image: linear-gradient(rgba(47, 37, 32, 0.86), rgba(47, 37, 32, 0.86)), url('/themes/bubu/notes-background.webp'), url('/themes/bubu/interior-background.webp');
 }
 
 .dark[data-theme='bubu'] main[data-theme-page='stats'] {
-  background-image: linear-gradient(rgba(26, 24, 23, 0.88), rgba(26, 24, 23, 0.88)), url('/themes/bubu/stats-background.png'), url('/themes/bubu/interior-background.png');
+  background-image: linear-gradient(rgba(47, 37, 32, 0.86), rgba(47, 37, 32, 0.86)), url('/themes/bubu/stats-background.webp'), url('/themes/bubu/interior-background.webp');
 }
 
 @media (min-width: 640px) {
@@ -211,7 +252,7 @@
   [data-theme='bubu'] main[data-theme-page='settings'],
   .dark[data-theme='bubu'] main[data-theme-page='home'],
   .dark[data-theme='bubu'] main[data-theme-page='settings'] {
-    background-size: 100% 100%, min(100vw, 512px) auto;
+    background-size: 100% 100%, min(100vw, 640px) auto;
   }
 
   [data-theme='bubu'] main[data-theme-page='accounting'],
@@ -220,31 +261,8 @@
   .dark[data-theme='bubu'] main[data-theme-page='accounting'],
   .dark[data-theme='bubu'] main[data-theme-page='notes'],
   .dark[data-theme='bubu'] main[data-theme-page='stats'] {
-    background-size: 100% 100%, min(100vw, 512px) auto, min(100vw, 512px) auto;
+    background-size: 100% 100%, min(100vw, 640px) auto, min(100vw, 640px) auto;
   }
-}
-
-[data-theme='bubu'] .bubu-frame-card {
-  position: relative;
-}
-
-[data-theme='bubu'] .bubu-frame-card::after {
-  content: '';
-  position: absolute;
-  inset: 1px;
-  border: 6px solid transparent;
-  border-image-source: url('/themes/bubu/summary-card-frame.png');
-  border-image-slice: 76;
-  border-image-width: 15px;
-  border-image-repeat: stretch;
-  border-radius: inherit;
-  pointer-events: none;
-  z-index: 2;
-}
-
-[data-theme='bubu'] .bubu-frame-card--compact::after {
-  border-image-slice: 96;
-  border-image-width: 9px;
 }
 
 @layer base {
@@ -615,6 +633,15 @@ body::after {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+
   .ambient-orb,
   .ambient-particle,
   .grad-animated,

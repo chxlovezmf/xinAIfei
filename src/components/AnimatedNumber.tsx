@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { animate, useInView } from 'framer-motion';
+import { animate, useInView, useReducedMotion } from 'framer-motion';
 
 interface AnimatedNumberProps {
   value: number;
@@ -16,17 +16,22 @@ export default function AnimatedNumber({
 }: AnimatedNumberProps) {
   const ref = useRef<HTMLSpanElement>(null);
   const inView = useInView(ref, { once: true, margin: '-20px' });
+  const reduceMotion = useReducedMotion();
   const [text, setText] = useState(format(0));
 
   useEffect(() => {
     if (!inView) return;
+    if (reduceMotion) {
+      setText(format(value));
+      return;
+    }
     const controls = animate(0, value, {
       duration,
       ease: 'easeOut',
       onUpdate: (v) => setText(format(v)),
     });
     return () => controls.stop();
-  }, [inView, value, duration, format]);
+  }, [inView, value, duration, format, reduceMotion]);
 
   return (
     <span ref={ref} className={className}>
