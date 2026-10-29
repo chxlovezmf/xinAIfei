@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import {
   LayoutDashboard, Receipt, BookOpen, BarChart3, Settings,
 } from 'lucide-react';
@@ -17,6 +17,7 @@ const tabs: { key: PageView; label: string; icon: typeof LayoutDashboard; path: 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const reduceMotion = useReducedMotion();
   const currentPath = location.pathname || '/';
   const isNoteEditor = currentPath.startsWith('/notes/');
   const themePage = currentPath === '/' ? 'home'
@@ -50,12 +51,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                       <motion.div
                         layoutId="tab-pill"
                         className="absolute inset-0 rounded-xl grad-card grad-primary grad-animated shadow-md"
-                        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                        transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 400, damping: 30 }}
                       />
                     )}
                     <motion.span
-                      animate={isActive ? { y: -1, scale: 1.05 } : { y: 0, scale: 1 }}
-                      transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                      animate={reduceMotion ? undefined : isActive ? { y: -1, scale: 1.05 } : { y: 0, scale: 1 }}
+                      transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 400, damping: 20 }}
                       whileTap={{ scale: 0.82 }}
                       className="relative flex flex-col items-center gap-0.5"
                     >
@@ -74,12 +75,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export function PageTransition({ children }: { children: React.ReactNode }) {
+  const reduceMotion = useReducedMotion();
   return (
     <motion.div
-      initial={{ opacity: 0 }}
+      initial={reduceMotion ? false : { opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.12, ease: 'easeOut' }}
+      exit={reduceMotion ? undefined : { opacity: 0 }}
+      transition={reduceMotion ? { duration: 0 } : { duration: 0.12, ease: 'easeOut' }}
     >
       {children}
     </motion.div>

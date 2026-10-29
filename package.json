@@ -3,7 +3,7 @@
  "description": "鑫菲日记 - 记事记账本",
  "license": "MIT",
  "private": true,
- "version": "1.5.1",
+ "version": "1.6.0",
  "type": "module",
  "scripts": {
   "dev": "vite",

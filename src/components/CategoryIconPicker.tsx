@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import CategoryIcon, { CATEGORY_ICON_OPTIONS } from './CategoryIcon';
 import { getBubuCategoryArt, isBubuCategoryArtPickerIcon, type CategoryType } from '../utils/categoryArt';
 
@@ -10,9 +11,13 @@ interface CategoryIconPickerProps {
 }
 
 export default function CategoryIconPicker({ value, color, type, showBubuArt, onChange }: CategoryIconPickerProps) {
+  const [search, setSearch] = useState('');
+  const options = CATEGORY_ICON_OPTIONS.filter(option => `${option.label} ${option.name}`.toLowerCase().includes(search.trim().toLowerCase()));
   return (
-    <div className="mt-2 grid max-h-48 grid-cols-5 gap-1.5 overflow-y-auto pr-1 sm:grid-cols-6">
-      {CATEGORY_ICON_OPTIONS.map(({ name, label }) => {
+    <div className="mt-2">
+      <input type="search" value={search} onChange={e => setSearch(e.target.value)} aria-label="搜索分类图标" placeholder="搜索图标，如买菜、房租" className="input-field mb-2 py-2 text-sm" />
+      <div className="grid max-h-48 grid-cols-5 gap-1.5 overflow-y-auto pr-1 sm:grid-cols-6">
+      {options.map(({ name, label }) => {
         const artPath = showBubuArt && isBubuCategoryArtPickerIcon(type, name)
           ? getBubuCategoryArt(type, name)
           : undefined;
@@ -41,6 +46,8 @@ export default function CategoryIconPicker({ value, color, type, showBubuArt, on
           </button>
         );
       })}
+      </div>
+      {options.length === 0 && <p className="py-3 text-center text-xs text-gray-500">没有找到图标，换个词试试</p>}
     </div>
   );
 }

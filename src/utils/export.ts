@@ -1,4 +1,4 @@
-import type { Transaction, Category } from '../types';
+import type { Transaction, Category, BudgetConfig } from '../types';
 import dayjs from 'dayjs';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
@@ -111,13 +111,12 @@ function fallbackCopy(text: string, resolve: (v: boolean) => void) {
   } catch { resolve(false); }
 }
 
-export function getExportDataString(transactions: Transaction[], notes: any[], categories: Category[], balance?: any) {
-  return JSON.stringify({ version: '1.1', exportedAt: new Date().toISOString(), transactions, notes, categories, balance: balance || null }, null, 2);
+export function getExportDataString(transactions: Transaction[], notes: any[], categories: Category[], balance?: any, budgets: BudgetConfig[] = []) {
+  return JSON.stringify({ version: '1.2', exportedAt: new Date().toISOString(), transactions, notes, categories, balance: balance || null, budgets }, null, 2);
 }
 
-export function exportAllData(transactions: Transaction[], notes: any[], categories: Category[], balance?: any) {
-  const data = { version: '1.1', exportedAt: new Date().toISOString(), transactions, notes, categories, balance: balance || null };
-  downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), `鑫菲日记_数据备份_${dayjs().format('YYYYMMDD')}.json`);
+export function exportAllData(transactions: Transaction[], notes: any[], categories: Category[], balance?: any, budgets: BudgetConfig[] = []) {
+  downloadBlob(new Blob([getExportDataString(transactions, notes, categories, balance, budgets)], { type: 'application/json' }), `鑫菲日记_数据备份_${dayjs().format('YYYYMMDD')}.json`);
 }
 
 export interface ImportData {
@@ -125,12 +124,21 @@ export interface ImportData {
   notes: any[];
   categories: any[];
   balance?: any;
+  budgets?: BudgetConfig[];
 }
 
 export function importAllData(jsonStr: string): ImportData | null {
   try {
     const data = JSON.parse(jsonStr);
-    if (data.version === '1.0' || data.version === '1.1') return { transactions: data.transactions || [], notes: data.notes || [], categories: data.categories || [], balance: data.balance || null };
+    if (!['1.0', '1.1', '1.2'].includes(data.version)) return null;
+    if (data.version === '1.2' && (!Array.isArray(data.transactions) || !Array.isArray(data.notes) || !Array.isArray(data.categories))) return null;
+    if (data.version !== '1.2' && [data.transactions, data.notes, data.categories].some(value => value != null && !Array.isArray(value))) return null;
+    if (data.version === '1.2') {
+      const keys = ['clothing', 'food', 'housing', 'transport'];
+      if (!Array.isArray(data.budgets) || !data.budgets.every((b: any) => b && /^\d{4}-(0[1-9]|1[0-2])$/.test(b.month) && b.limits && keys.every(k => b.limits[k] === null || (typeof b.limits[k] === 'number' && Number.isFinite(b.limits[k]) && b.limits[k] > 0)) && b.assignments && typeof b.assignments === 'object' && !Array.isArray(b.assignments) && Object.values(b.assignments).every(v => keys.includes(v as string)))) return null;
+      if (new Set(data.budgets.map((b: BudgetConfig) => b.month)).size !== data.budgets.length) return null;
+    }
+    return { transactions: data.transactions || [], notes: data.notes || [], categories: data.categories || [], balance: data.balance || null, budgets: data.version === '1.2' ? data.budgets : undefined };
     return null;
   } catch { return null; }
 }

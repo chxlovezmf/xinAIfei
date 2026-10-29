@@ -33,6 +33,8 @@ export default function AddTransactionSheet({ open, onClose, onSaved, editTx }: 
   const noteInputRef = useRef<HTMLInputElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const [maxH, setMaxH] = useState('85dvh');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   // When keyboard opens/closes, adjust sheet height to viewport
   useEffect(() => {
@@ -50,6 +52,8 @@ export default function AddTransactionSheet({ open, onClose, onSaved, editTx }: 
 
   useEffect(() => {
     if (open) {
+      setSaving(false);
+      setSaveError('');
       getCategories().then(setCategories);
       if (editTx) {
         setType(editTx.type);
@@ -150,16 +154,24 @@ export default function AddTransactionSheet({ open, onClose, onSaved, editTx }: 
   };
 
   const handleSave = async () => {
-    if (!amount || !categoryId) return;
+    if (saving || !amount || !categoryId) return;
     const numAmount = parseFloat(amount);
     if (isNaN(numAmount) || numAmount <= 0) return;
-    if (editTx) {
-      await updateTransaction(editTx.id, { type, amount: numAmount, categoryId, date, note });
-    } else {
-      await addTransaction({ type, amount: numAmount, categoryId, date, note, tags: [] });
+    setSaving(true);
+    setSaveError('');
+    try {
+      if (editTx) {
+        await updateTransaction(editTx.id, { type, amount: numAmount, categoryId, date, note });
+      } else {
+        await addTransaction({ type, amount: numAmount, categoryId, date, note, tags: [] });
+      }
+      onSaved();
+      onClose();
+    } catch {
+      setSaveError('保存失败，请检查存储空间后重试');
+    } finally {
+      setSaving(false);
     }
-    onSaved();
-    onClose();
   };
 
   const displayAmount = expression || amount || '0';
@@ -375,13 +387,16 @@ export default function AddTransactionSheet({ open, onClose, onSaved, editTx }: 
                     </div>
                   </div>
 
-                  <div className="flex shrink-0 gap-3 py-3 pb-[60px] border-t border-gray-100 dark:border-gray-700">
-                    <button onClick={() => setStep('amount')} className="btn-secondary bubu-art-button-soft flex-1">
-                      返回修改
-                    </button>
-                    <button onClick={handleSave} disabled={!categoryId} className="btn-primary bubu-art-button flex-1">
-                      {editTx ? '保存修改' : '确认添加'}
-                    </button>
+                  <div className="flex shrink-0 flex-col gap-2 border-t border-gray-100 py-3 pb-[60px] dark:border-gray-700">
+                    {saveError && <p role="alert" className="text-center text-xs text-red-500">{saveError}</p>}
+                    <div className="flex gap-3">
+                      <button onClick={() => setStep('amount')} className="btn-secondary bubu-art-button-soft flex-1">
+                        返回修改
+                      </button>
+                      <button onClick={handleSave} disabled={!categoryId || saving} aria-busy={saving} className="btn-primary bubu-art-button flex-1 disabled:cursor-wait disabled:opacity-60">
+                        {saving ? '保存中…' : editTx ? '保存修改' : '确认添加'}
+                      </button>
+                    </div>
                   </div>
                 </>
               )}

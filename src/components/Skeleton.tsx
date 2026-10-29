@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 
 export function CardSkeleton() {
   return (
-    <div className="glass-card space-y-3 p-4">
+    <div className="glass-card space-y-3 p-4" role="status" aria-label="正在加载">
       <div className="shimmer-block h-4 w-2/3 rounded" />
       <div className="shimmer-block h-3 w-full rounded" />
       <div className="shimmer-block h-3 w-4/5 rounded" />
@@ -12,7 +12,7 @@ export function CardSkeleton() {
 
 export function ListSkeleton({ count = 3 }: { count?: number }) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" role="status" aria-label="正在加载">
       {Array.from({ length: count }).map((_, i) => (
         <motion.div
           key={i}

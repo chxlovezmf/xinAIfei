@@ -162,7 +162,7 @@ export default function Notes() {
 
   return (
     <PageTransition>
-      <div className="page-container">
+      <div className="page-container" aria-busy={tasksLoading || notesLoading}>
         <div className="mb-4 flex items-center justify-between">
           <h1 className="flex items-center gap-1.5 page-title"><span className="sticker-emoji text-base">📔</span>记事</h1>
           {activeTab === 'diary' && (
@@ -205,6 +205,7 @@ export default function Notes() {
                 <button
                   type="button"
                   onClick={() => void clearCompletedTasks()}
+                  aria-label="清除已完成任务"
                   className="inline-flex items-center gap-1 rounded-full bg-red-50 px-3 py-1.5 text-xs font-medium text-red-500 transition-colors hover:bg-red-100 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/35"
                 >
                   <Trash2 size={13} />清除已完成
@@ -230,14 +231,15 @@ export default function Notes() {
             </label>
             {tasksLoading ? <ListSkeleton /> : tasks.length === 0 ? (
               <EmptyState title="还没有任务" description="添加一个任务开始规划吧"
-                illustration={isBubuTheme ? '/themes/bubu/notes-empty.png' : undefined} />
+                illustration={isBubuTheme ? '/themes/bubu/notes-empty.webp' : undefined}
+                illustrationAlt={isBubuTheme ? '布布一二一起整理今天的日程' : undefined} />
             ) : (
               <div className="space-y-1.5">
                 {sortedTasks.map((task, i) => (
                   <motion.div key={task.id} layout
                     initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04, type: 'spring', stiffness: 300, damping: 24 }}
                     className="glass-card flex items-center gap-3 px-3 py-2.5">
-                    <motion.button whileTap={{ scale: 0.75 }} onClick={() => toggleTask(task)}
+                    <motion.button whileTap={{ scale: 0.75 }} onClick={() => toggleTask(task)} aria-label={task.done ? '标记任务未完成' : '标记任务已完成'}
                       className="text-gray-400 hover:text-primary-500 transition-colors shrink-0">
                       {task.done ? (
                         <motion.div key="done" initial={{ scale: 0.5 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 500, damping: 15 }}>
@@ -255,10 +257,10 @@ export default function Notes() {
                           className="flex-1 rounded-lg border border-gray-200 bg-white px-2 py-1 text-sm outline-none focus:border-primary-400 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
                           autoFocus
                         />
-                        <button onClick={saveEditTask} className="rounded p-1 text-primary-500 hover:bg-primary-50 dark:hover:bg-gray-700">
+                        <button onClick={saveEditTask} aria-label="保存任务编辑" className="rounded p-1 text-primary-500 hover:bg-primary-50 dark:hover:bg-gray-700">
                           <Check size={16} />
                         </button>
-                        <button onClick={cancelEditTask} className="rounded p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700">
+                        <button onClick={cancelEditTask} aria-label="取消任务编辑" className="rounded p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700">
                           <X size={16} />
                         </button>
                       </div>
@@ -272,10 +274,10 @@ export default function Notes() {
                         <CalendarDays size={11} />{formatTaskDate(task.date)}
                       </span>
                       <div className="flex items-center gap-0.5">
-                        <button onClick={() => startEditTask(task)} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-primary-500 dark:hover:bg-gray-700">
+                        <button onClick={() => startEditTask(task)} aria-label="编辑任务" className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-primary-500 dark:hover:bg-gray-700">
                           <Pencil size={14} />
                         </button>
-                        <button onClick={() => delTask(task.id)} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-red-400 dark:hover:bg-gray-700">
+                        <button onClick={() => delTask(task.id)} aria-label="删除任务" className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-red-400 dark:hover:bg-gray-700">
                           <Trash2 size={14} />
                         </button>
                       </div>
@@ -300,7 +302,8 @@ export default function Notes() {
               <EmptyState icon={search ? <Search size={48} /> : <StickyNote size={48} />}
                 title={search ? '没有找到匹配的日记' : '还没有日记'}
                 description={search ? '换个关键词试试' : '随手记或写一篇长篇日记吧'}
-                illustration={!search && isBubuTheme ? '/themes/bubu/diary-empty.png' : undefined} />
+                illustration={!search && isBubuTheme ? '/themes/bubu/diary-empty.webp' : undefined}
+                illustrationAlt={!search && isBubuTheme ? '布布一二一起写日记' : undefined} />
             ) : (
               <div className="space-y-2">
                 {pinnedNotes.map((note) => (
@@ -338,10 +341,10 @@ function NoteCard({ note, onPin, onDelete, onClick, pinned }: any) {
       <div className="mt-1.5 flex items-center justify-between">
         <span className="text-xs text-gray-400">{formatDateTime(note.updatedAt)}</span>
         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-          <motion.button whileTap={{ scale: 0.8 }} onClick={() => onPin(note)} className="rounded p-1 text-gray-400 hover:text-amber-500 hover:bg-gray-100 dark:hover:bg-gray-700">
+          <motion.button whileTap={{ scale: 0.8 }} onClick={() => onPin(note)} aria-label={pinned ? '取消置顶日记' : '置顶日记'} className="rounded p-1 text-gray-400 hover:text-amber-500 hover:bg-gray-100 dark:hover:bg-gray-700">
             {pinned ? <PinOff size={14} /> : <Pin size={14} />}
           </motion.button>
-          <motion.button whileTap={{ scale: 0.8 }} onClick={onDelete} className="rounded p-1 text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-700">
+          <motion.button whileTap={{ scale: 0.8 }} onClick={onDelete} aria-label="删除日记" className="rounded p-1 text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-700">
             <Trash2 size={14} />
           </motion.button>
         </div>

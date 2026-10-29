@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, PointElement, LineElement, Filler } from 'chart.js';
@@ -24,13 +24,9 @@ const CHART_COLORS = [
   '#0ea5e9', '#10b981', '#eab308', '#8b5cf6',
 ];
 
-function shuffleArray<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
+function getStableChartColor(categoryId: number) {
+  const index = Math.abs((categoryId * 31 + 7) % CHART_COLORS.length);
+  return CHART_COLORS[index];
 }
 
 export default function Stats() {
@@ -49,66 +45,77 @@ export default function Stats() {
   const [balanceDraft, setBalanceDraft] = useState('');
   const [editingBalance, setEditingBalance] = useState(false);
   const chartRef = useRef<any>(null);
+  const loadRequestRef = useRef(0);
 
   const loadData = useCallback(async () => {
+    const requestId = ++loadRequestRef.current;
     setLoading(true);
-    const [cats, snapshot, currentBalance] = await Promise.all([getCategories(), getBalanceSnapshot(), getCurrentBalance()]);
-    setCategories(cats);
-    setBalance(snapshot ? currentBalance : null);
-    let txs: Transaction[];
-    if (viewMode === 'month') {
-      txs = await getTransactionsByMonth(year, month);
-    } else {
-      txs = await getTransactionsByDateRange(rangeStart, rangeEnd);
+    try {
+      const txsRequest = viewMode === 'month'
+        ? getTransactionsByMonth(year, month)
+        : getTransactionsByDateRange(rangeStart, rangeEnd);
+      const [cats, snapshot, currentBalance, txs] = await Promise.all([
+        getCategories(),
+        getBalanceSnapshot(),
+        getCurrentBalance(),
+        txsRequest,
+      ]);
+      if (requestId !== loadRequestRef.current) return;
+      setCategories(cats);
+      setBalance(snapshot ? currentBalance : null);
+      setTransactions(txs);
+    } finally {
+      if (requestId === loadRequestRef.current) setLoading(false);
     }
-    setTransactions(txs);
-    setLoading(false);
   }, [year, month, viewMode, rangeStart, rangeEnd]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const catMap = new Map(categories.map(c => [c.id!, c]));
-  const expenseTxs = transactions.filter(t => t.type === 'expense');
-  const incomeTxs = transactions.filter(t => t.type === 'income');
-  const totalExpense = expenseTxs.reduce((s, t) => s + t.amount, 0);
-  const totalIncome = incomeTxs.reduce((s, t) => s + t.amount, 0);
+  const catMap = useMemo(() => new Map(categories.map(c => [c.id!, c])), [categories]);
+  const expenseTxs = useMemo(() => transactions.filter(t => t.type === 'expense'), [transactions]);
+  const incomeTxs = useMemo(() => transactions.filter(t => t.type === 'income'), [transactions]);
+  const totalExpense = useMemo(() => expenseTxs.reduce((s, t) => s + t.amount, 0), [expenseTxs]);
+  const totalIncome = useMemo(() => incomeTxs.reduce((s, t) => s + t.amount, 0), [incomeTxs]);
 
   // Expense by category
-  const expenseByCat: Record<number, number> = {};
-  expenseTxs.forEach(tx => {
-    expenseByCat[tx.categoryId] = (expenseByCat[tx.categoryId] || 0) + tx.amount;
-  });
+  const expenseCatData = useMemo(() => {
+    const expenseByCat: Record<number, number> = {};
+    expenseTxs.forEach(tx => {
+      expenseByCat[tx.categoryId] = (expenseByCat[tx.categoryId] || 0) + tx.amount;
+    });
+    return Object.entries(expenseByCat)
+      .map(([id, amount]) => ({
+        id: Number(id),
+        amount,
+        cat: catMap.get(Number(id)),
+      }))
+      .sort((a, b) => b.amount - a.amount);
+  }, [expenseTxs, catMap]);
 
-  const expenseCatData = Object.entries(expenseByCat)
-    .map(([id, amount]) => ({
-      id: Number(id),
-      amount,
-      cat: catMap.get(Number(id)),
-    }))
-    .sort((a, b) => b.amount - a.amount);
-
-  // Generate random but deterministic colors for each category
-  const catColorMap = new Map<string, string>();
-  const shuffledColors = shuffleArray(CHART_COLORS);
-  expenseCatData.forEach((d, i) => {
-    catColorMap.set(String(d.id), shuffledColors[i % shuffledColors.length]);
-  });
+  const catColorMap = useMemo(() => {
+    const colors = new Map<string, string>();
+    expenseCatData.forEach((d) => colors.set(String(d.id), getStableChartColor(d.id)));
+    return colors;
+  }, [expenseCatData]);
 
   // Doughnut chart
-  const doughnutData = {
+  const doughnutData = useMemo(() => ({
     labels: expenseCatData.map(d => d.cat?.name || '未知'),
     datasets: [{
       data: expenseCatData.map(d => d.amount),
       backgroundColor: expenseCatData.map(d => catColorMap.get(String(d.id)) || '#ccc'),
       borderWidth: 0,
     }],
-  };
+  }), [expenseCatData, catColorMap]);
 
   // Daily trend
-  const dailyMap: Record<string, number> = {};
-  expenseTxs.forEach(tx => {
-    dailyMap[tx.date] = (dailyMap[tx.date] || 0) + tx.amount;
-  });
+  const dailyMap = useMemo(() => {
+    const values: Record<string, number> = {};
+    expenseTxs.forEach(tx => {
+      values[tx.date] = (values[tx.date] || 0) + tx.amount;
+    });
+    return values;
+  }, [expenseTxs]);
 
   // Generate days for the selected range
   const startDay = viewMode === 'month'
@@ -118,22 +125,25 @@ export default function Stats() {
     ? dayjs(`${year}-${month}-01`).endOf('month')
     : dayjs(rangeEnd);
 
-  const dailyLabels: string[] = [];
-  const dailyValues: number[] = [];
-  let cursor = startDay;
-  while (cursor.isBefore(endDay) || cursor.isSame(endDay, 'day')) {
-    const dateStr = cursor.format('YYYY-MM-DD');
-    dailyLabels.push(cursor.format('M/D'));
-    dailyValues.push(dailyMap[dateStr] || 0);
-    cursor = cursor.add(1, 'day');
-  }
+  const { dailyLabels, dailyValues } = useMemo(() => {
+    const labels: string[] = [];
+    const values: number[] = [];
+    let cursor = startDay;
+    while (cursor.isBefore(endDay) || cursor.isSame(endDay, 'day')) {
+      const dateStr = cursor.format('YYYY-MM-DD');
+      labels.push(cursor.format('M/D'));
+      values.push(dailyMap[dateStr] || 0);
+      cursor = cursor.add(1, 'day');
+    }
+    return { dailyLabels: labels, dailyValues: values };
+  }, [dailyMap, viewMode, year, month, rangeStart, rangeEnd]);
 
   const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
   const tooltipBg = isDark ? 'rgba(17,24,39,0.92)' : 'rgba(255,255,255,0.95)';
   const tooltipText = isDark ? '#f3f4f6' : '#111827';
   const gridColor = isDark ? 'rgba(255,255,255,0.06)' : '#f0f0f0';
 
-  const lineData = {
+  const lineData = useMemo(() => ({
     labels: dailyLabels,
     datasets: [{
       label: '每日支出',
@@ -156,18 +166,18 @@ export default function Stats() {
       pointBorderColor: '#fff',
       pointBorderWidth: 2,
     }],
-  };
+  }), [dailyLabels, dailyValues]);
 
   // Income vs Expense bar
-  const barData = {
+  const barData = useMemo(() => ({
     labels: ['收支对比'],
     datasets: [
       { label: '收入', data: [totalIncome], backgroundColor: '#14b8a6', borderRadius: 6 },
       { label: '支出', data: [totalExpense], backgroundColor: '#ef4444', borderRadius: 6 },
     ],
-  };
+  }), [totalIncome, totalExpense]);
 
-  const chartOptions = {
+  const chartOptions = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
     animation: { duration: 900, easing: 'easeOutQuart' as const },
@@ -184,9 +194,9 @@ export default function Stats() {
         boxPadding: 4,
       },
     },
-  };
+  }), [tooltipBg, tooltipText, isDark]);
 
-  const lineChartOptions = {
+  const lineChartOptions = useMemo(() => ({
     ...chartOptions,
     onClick: (_event: any, elements: any[]) => {
       if (elements.length > 0) {
@@ -210,7 +220,7 @@ export default function Stats() {
       x: { grid: { display: false }, ticks: { font: { size: 10 }, maxTicksLimit: 31 } },
       y: { beginAtZero: true, grid: { color: gridColor }, ticks: { font: { size: 10 } } },
     },
-  };
+  }), [chartOptions, dailyLabels, dailyMap, viewMode, year, month, rangeStart, gridColor]);
 
   const handleExport = () => {
     if (viewMode === 'month') {
@@ -261,7 +271,7 @@ export default function Stats() {
 
   return (
     <PageTransition>
-      <div className="page-container">
+      <div className="page-container" aria-busy={loading}>
         <div className="mb-4 flex items-center justify-between">
           <h1 className="flex items-center gap-1.5 page-title"><span className="sticker-emoji text-base">📊</span>统计</h1>
           <button
@@ -347,17 +357,17 @@ export default function Stats() {
             )}
           </div>
           {editingBalance ? (
-            <button onClick={() => void handleBalanceSave()} className="rounded-full bg-primary-500 p-2 text-white" title="保存余额"><Check size={17} /></button>
+            <button onClick={() => void handleBalanceSave()} className="rounded-full bg-primary-500 p-2 text-white" title="保存余额" aria-label="保存余额"><Check size={17} /></button>
           ) : (
-            <button onClick={() => { setBalanceDraft(balance === null ? '' : String(balance)); setEditingBalance(true); }} className="rounded-full bg-gray-100 p-2 text-gray-500 transition-colors hover:bg-primary-100 hover:text-primary-600 dark:bg-gray-700" title="编辑余额"><Pencil size={16} /></button>
+            <button onClick={() => { setBalanceDraft(balance === null ? '' : String(balance)); setEditingBalance(true); }} className="rounded-full bg-gray-100 p-2 text-gray-500 transition-colors hover:bg-primary-100 hover:text-primary-600 dark:bg-gray-700" title="编辑余额" aria-label="编辑余额"><Pencil size={16} /></button>
           )}
         </motion.div>
 
         {loading ? (
           <div className="space-y-4">
             <CardSkeleton />
-            <div className="h-48 rounded-2xl bg-white" />
-            <div className="h-32 rounded-2xl bg-white" />
+            <CardSkeleton />
+            <CardSkeleton />
           </div>
         ) : transactions.length === 0 ? (
           <div className="py-16 text-center text-sm text-gray-400">
@@ -375,6 +385,7 @@ export default function Stats() {
                 onClick={() => navigate('/accounting?type=income')}
                 className="accounting-total-card accounting-total-card--income min-w-0 flex-1 p-3 text-left"
                 title="查看收入账目"
+                aria-label="查看收入账目"
               >
                 <p className="text-xs opacity-75">总收入</p>
                 <p className="mt-1 text-lg font-bold"><AnimatedNumber value={totalIncome} format={(n) => '¥' + formatAmount(n)} /></p>
@@ -388,6 +399,7 @@ export default function Stats() {
                 onClick={() => navigate('/accounting?type=expense')}
                 className="accounting-total-card accounting-total-card--expense min-w-0 flex-1 p-3 text-left"
                 title="查看支出账目"
+                aria-label="查看支出账目"
               >
                 <p className="text-xs opacity-75">总支出</p>
                 <p className="mt-1 text-lg font-bold"><AnimatedNumber value={totalExpense} format={(n) => '¥' + formatAmount(n)} /></p>
@@ -452,7 +464,7 @@ export default function Stats() {
                     <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
                       {selectedDay} ({dayjs(selectedDay).format('ddd')})
                     </span>
-                    <button onClick={() => setSelectedDay(null)} className="text-gray-400 hover:text-gray-600">
+                    <button onClick={() => setSelectedDay(null)} aria-label="关闭当日详情" className="text-gray-400 hover:text-gray-600">
                       <X size={16} />
                     </button>
                   </div>
