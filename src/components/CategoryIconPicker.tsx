@@ -13,12 +13,16 @@ interface CategoryIconPickerProps {
 export default function CategoryIconPicker({ value, color, type, showBubuArt, onChange }: CategoryIconPickerProps) {
   const [search, setSearch] = useState('');
   const options = CATEGORY_ICON_OPTIONS.filter(option => `${option.label} ${option.name}`.toLowerCase().includes(search.trim().toLowerCase()));
+  const artOptions = showBubuArt ? options.filter(option => isBubuCategoryArtPickerIcon(option.name)) : [];
+  const otherOptions = showBubuArt ? options.filter(option => !isBubuCategoryArtPickerIcon(option.name)) : options;
   return (
     <div className="mt-2">
       <input type="search" value={search} onChange={e => setSearch(e.target.value)} aria-label="搜索分类图标" placeholder="搜索图标，如买菜、房租" className="input-field mb-2 py-2 text-sm" />
-      <div className="grid max-h-48 grid-cols-5 gap-1.5 overflow-y-auto pr-1 sm:grid-cols-6">
-      {options.map(({ name, label }) => {
-        const artPath = showBubuArt && isBubuCategoryArtPickerIcon(type, name)
+      <div className="max-h-48 overflow-y-auto pr-1">
+      {[artOptions, otherOptions].map((group, groupIndex) => group.length > 0 && (
+      <div key={groupIndex} className={`grid grid-cols-5 gap-1.5 sm:grid-cols-6 ${groupIndex === 1 && artOptions.length > 0 ? 'mt-2 border-t border-gray-200 pt-2 dark:border-gray-700' : ''}`}>
+      {group.map(({ name, label }) => {
+        const artPath = showBubuArt && isBubuCategoryArtPickerIcon(name)
           ? getBubuCategoryArt(type, name)
           : undefined;
         return (
@@ -46,6 +50,8 @@ export default function CategoryIconPicker({ value, color, type, showBubuArt, on
           </button>
         );
       })}
+      </div>
+      ))}
       </div>
       {options.length === 0 && <p className="py-3 text-center text-xs text-gray-500">没有找到图标，换个词试试</p>}
     </div>
