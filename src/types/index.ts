@@ -48,6 +48,25 @@ export interface Task {
   updatedAt: string;
 }
 
+/** 每日计划的固定任务模板，days 为空数组表示每天；0=周日 … 6=周六 */
+export interface DailyPlan {
+  id?: number;
+  text: string;
+  days: number[];
+  order: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 每日计划的打卡记录，只保存已完成的日期，id 为 `${planId}_${date}` */
+export interface DailyPlanCheck {
+  id?: string;
+  planId: number;
+  date: string; // YYYY-MM-DD
+  done: boolean;
+  updatedAt: string;
+}
+
 export interface BalanceSnapshot {
   id?: number;
   amount: number;

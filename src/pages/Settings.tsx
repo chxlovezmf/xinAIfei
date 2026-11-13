@@ -1,15 +1,15 @@
-﻿/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sun, Moon, Database, Download, Upload, Palette, Info, HardDrive, CheckCircle, XCircle } from "lucide-react";
 import type { Category } from "../types";
 import dayjs from "dayjs";
-import { getCategories, addCategory, deleteCategory, updateCategory, getAllTransactions, getAllNotes, getBalanceSnapshot, getAllBudgets, importData } from "../db/database";
+import { getCategories, addCategory, deleteCategory, updateCategory, getAllTransactions, getAllNotes, getBalanceSnapshot, getAllBudgets, getDailyPlans, getAllDailyPlanChecks, importData } from "../db/database";
 import { PageTransition } from "../components/Layout";
 import CategoryIcon from "../components/CategoryIcon";
 import CategoryIconPicker from "../components/CategoryIconPicker";
 import { useDarkMode } from "../hooks/useDarkMode";
-import { exportAllData, importAllData, getExportDataString, copyToClipboard, nativeExport, shareExportFile, listBackupFiles, readBackupFile, type BackupFileInfo } from "../utils/export";
+import { exportAllData, importAllData, getExportDataString, copyToClipboard, nativeExport, shareExportFile, listBackupFiles, readBackupFile, type BackupFileInfo, type ImportData } from "../utils/export";
 import { getBubuCategoryArt } from "../utils/categoryArt";
 import { version as APP_VERSION } from '../../package.json';
 
@@ -55,6 +55,14 @@ export default function Settings() {
   const [aboutText] = useState(() => localStorage.getItem('aboutText') || DEFAULT_ABOUT_TEXT);
 
   const showToast = (type:'success'|'error', message:string) => { setToast({type,message}); setTimeout(()=>setToast(null),3000); };
+  const confirmLegacyImport = (data: ImportData) => {
+    const missing = [!data.budgets && '预算', !data.dailyPlans && '每日计划'].filter(Boolean);
+    if (!missing.length) return true;
+    return window.confirm(`此旧备份不包含${missing.join('和')}。导入会替换当前数据并清除当前的${missing.join('和')}设置，是否继续？`);
+  };
+  const importSummary = (data: ImportData) =>
+    "发现 " + data.transactions.length + " 条账目、" + data.notes.length + " 条笔记、" + data.categories.length + " 个分类、" +
+    (data.dailyPlans?.length ?? 0) + " 项每日计划、" + (data.dailyPlanChecks?.length ?? 0) + " 条打卡记录";
   const formatBytes = (b:number) => b<1024 ? b+' B' : b<1048576 ? (b/1024).toFixed(1)+' KB' : (b/1048576).toFixed(1)+' MB';
   const selectAppTheme = (theme: 'petal'|'bubu') => {
     setAppTheme(theme);
@@ -80,8 +88,8 @@ export default function Settings() {
   const [editingAbout, setEditingAbout] = useState(false);
 
   const handleExportToFile = async () => {
-    const [txs,notes,cats,balance,budgets] = await Promise.all([getAllTransactions(),getAllNotes(),getCategories(),getBalanceSnapshot(),getAllBudgets()]);
-    const jsonStr = getExportDataString(txs, notes, cats, balance, budgets);
+    const [txs,notes,cats,balance,budgets,dailyPlans,dailyPlanChecks] = await Promise.all([getAllTransactions(),getAllNotes(),getCategories(),getBalanceSnapshot(),getAllBudgets(),getDailyPlans(),getAllDailyPlanChecks()]);
+    const jsonStr = getExportDataString(txs, notes, cats, balance, budgets, dailyPlans, dailyPlanChecks);
     const fileName = `鑫菲日记_数据备份_${dayjs().format('YYYYMMDD_HHmmss')}.json`;
     const saved = await nativeExport(jsonStr, fileName);
     if (saved) {
@@ -92,13 +100,13 @@ export default function Settings() {
         showToast('success','备份已保存到"文档"文件夹，打开手机"文件管理"可找到');
       }
     } else {
-      exportAllData(txs,notes,cats,balance,budgets);
+      exportAllData(txs,notes,cats,balance,budgets,dailyPlans,dailyPlanChecks);
       showToast('success','文件已下载到本地');
     }
   };
   const handleExportToClipboard = async () => {
-    const [txs,notes,cats,balance,budgets] = await Promise.all([getAllTransactions(),getAllNotes(),getCategories(),getBalanceSnapshot(),getAllBudgets()]);
-    const jsonStr = getExportDataString(txs, notes, cats, balance, budgets);
+    const [txs,notes,cats,balance,budgets,dailyPlans,dailyPlanChecks] = await Promise.all([getAllTransactions(),getAllNotes(),getCategories(),getBalanceSnapshot(),getAllBudgets(),getDailyPlans(),getAllDailyPlanChecks()]);
+    const jsonStr = getExportDataString(txs, notes, cats, balance, budgets, dailyPlans, dailyPlanChecks);
     const ok = await copyToClipboard(jsonStr);
     if (ok) {
       showToast('success','数据已复制到剪贴板，粘贴到备忘录等地方保存即可');
@@ -114,13 +122,13 @@ export default function Settings() {
       // Remove BOM if present
       const cleanText = text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text;
       const data = importAllData(cleanText);
-      if(data) { if (!data.budgets && !window.confirm('此旧备份不包含预算。导入会替换当前数据并清除当前预算设置，是否继续？')) return; await importData(data); setCategories(await getCategories()); setImportStatus("发现 "+data.transactions.length+" 条账目、"+data.notes.length+" 条笔记、"+data.categories.length+" 个分类"); showToast('success','数据导入成功'); }
+      if(data) { if (!confirmLegacyImport(data)) return; await importData(data); setCategories(await getCategories()); setImportStatus(importSummary(data)); showToast('success','数据导入成功'); }
       else { setImportStatus("文件格式不正确，请检查备份文件"); showToast('error','文件格式不正确'); }
     }; input.click();
   };
   const handlePasteImportConfirm = async () => {
     const data = importAllData(pasteText);
-    if(data) { if (!data.budgets && !window.confirm('此旧备份不包含预算。导入会替换当前数据并清除当前预算设置，是否继续？')) return; await importData(data); setCategories(await getCategories()); setImportStatus("发现 "+data.transactions.length+" 条账目、"+data.notes.length+" 条笔记、"+data.categories.length+" 个分类"); showToast('success','数据导入成功'); setShowPasteImport(false); setPasteText(""); }
+    if(data) { if (!confirmLegacyImport(data)) return; await importData(data); setCategories(await getCategories()); setImportStatus(importSummary(data)); showToast('success','数据导入成功'); setShowPasteImport(false); setPasteText(""); }
     else { showToast('error','粘贴内容不是有效的备份数据，请检查是否完整复制了全部JSON'); }
   };
   const handleShowRestore = async () => {
@@ -134,10 +142,10 @@ export default function Settings() {
     if (!text) { showToast('error','无法读取备份文件'); return; }
     const data = importAllData(text);
     if (!data) { showToast('error','文件内容格式不正确'); return; }
-    if (!data.budgets && !window.confirm('此旧备份不包含预算。恢复会替换当前数据并清除当前预算设置，是否继续？')) return;
+    if (!confirmLegacyImport(data)) return;
     await importData(data);
     setCategories(await getCategories());
-    setImportStatus("发现 "+data.transactions.length+" 条账目、"+data.notes.length+" 条笔记、"+data.categories.length+" 个分类");
+    setImportStatus(importSummary(data));
     showToast('success','数据恢复成功');
   };
 

@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Pin, PinOff, Search, StickyNote, FileText, CheckCircle2, Circle, CalendarDays, BookOpen, Trash2, Pencil, Check, X } from 'lucide-react';
+import { Pin, PinOff, Search, StickyNote, FileText, CheckCircle2, Circle, CalendarDays, BookOpen, ListChecks, Trash2, Pencil, Check, X } from 'lucide-react';
 import type { Note, Task as TaskType } from '../types';
 import { getAllNotes, addNote, deleteNote, updateNote, getAllTasks, addTask as dbAddTask, updateTask as dbUpdateTask, deleteTask as dbDeleteTask } from '../db/database';
 import { formatDateTime } from '../utils/format';
 import { PageTransition } from '../components/Layout';
 import EmptyState from '../components/EmptyState';
 import { ListSkeleton } from '../components/Skeleton';
+import DailyPlanPanel from '../components/DailyPlanPanel';
 import dayjs from 'dayjs';
 
 export default function Notes() {
@@ -15,8 +16,9 @@ export default function Notes() {
   const isBubuTheme = document.documentElement.dataset.theme === 'bubu';
   const [searchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
-  const [activeTab, setActiveTab] = useState<'schedule' | 'diary'>(() => {
-    return tabParam === 'schedule' ? 'schedule' : 'diary';
+  const [activeTab, setActiveTab] = useState<'schedule' | 'plan' | 'diary'>(() => {
+    if (tabParam === 'schedule' || tabParam === 'plan') return tabParam;
+    return 'diary';
   });
   const [notes, setNotes] = useState<Note[]>([]);
   const [notesLoading, setNotesLoading] = useState(true);
@@ -184,6 +186,14 @@ export default function Notes() {
               <span className="ml-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-400 text-[10px] text-white">{pendingCount}</span>
             )}</span>
           </button>
+          <button onClick={() => setActiveTab('plan')}
+            className={'relative flex-1 flex items-center justify-center gap-1.5 rounded-full py-2 text-sm font-medium transition-all ' +
+              (activeTab === 'plan' ? 'text-gray-800 dark:text-gray-200' : 'text-gray-500')}>
+            {activeTab === 'plan' && (
+              <motion.div layoutId="notes-tab-pill" className="absolute inset-0 rounded-full bg-white shadow-sm dark:bg-gray-700" transition={{ type: 'spring', stiffness: 400, damping: 30 }} />
+            )}
+            <span className="relative flex items-center gap-1.5"><ListChecks size={16} />每日计划</span>
+          </button>
           <button onClick={() => setActiveTab('diary')}
             className={'relative flex-1 flex items-center justify-center gap-1.5 rounded-full py-2 text-sm font-medium transition-all ' +
               (activeTab === 'diary' ? 'text-gray-800 dark:text-gray-200' : 'text-gray-500')}>
@@ -287,6 +297,8 @@ export default function Notes() {
               </div>
             )}
           </>
+        ) : activeTab === 'plan' ? (
+          <DailyPlanPanel />
         ) : (
           <>
             <div className="relative mb-4">

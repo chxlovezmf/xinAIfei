@@ -1,12 +1,10 @@
 export type CategoryType = 'income' | 'expense';
 
-const BUBU_CATEGORY_ART_PICKER_ICONS: Record<CategoryType, readonly string[]> = {
-  expense: [
-    'utensils-crossed', 'car', 'shopping-bag', 'house', 'gamepad-2', 'heart-pulse',
-    'book-open', 'coins', 'smartphone', 'shirt', 'paw-print', 'plane',
-  ],
-  income: ['wallet', 'briefcase-business', 'trending-up', 'gift', 'more-horizontal'],
-};
+const BUBU_CATEGORY_ART_PICKER_ICONS: readonly string[] = [
+  'utensils-crossed', 'car', 'shopping-bag', 'house', 'gamepad-2', 'heart-pulse',
+  'book-open', 'coins', 'smartphone', 'shirt', 'paw-print', 'plane',
+  'wallet', 'briefcase-business', 'trending-up', 'gift', 'more-horizontal',
+];
 
 const BUBU_CATEGORY_ART: Record<CategoryType, Record<string, string>> = {
   expense: {
@@ -35,10 +33,11 @@ const BUBU_CATEGORY_ART: Record<CategoryType, Record<string, string>> = {
 };
 
 export function getBubuCategoryArt(type: CategoryType, icon: string): string | undefined {
-  const artName = BUBU_CATEGORY_ART[type][icon];
+  const otherType = type === 'income' ? 'expense' : 'income';
+  const artName = BUBU_CATEGORY_ART[type][icon] || BUBU_CATEGORY_ART[otherType][icon];
   return artName ? `/themes/bubu/categories/${artName}.png` : undefined;
 }
 
-export function isBubuCategoryArtPickerIcon(type: CategoryType, icon: string): boolean {
-  return BUBU_CATEGORY_ART_PICKER_ICONS[type].includes(icon);
+export function isBubuCategoryArtPickerIcon(icon: string): boolean {
+  return BUBU_CATEGORY_ART_PICKER_ICONS.includes(icon);
 }

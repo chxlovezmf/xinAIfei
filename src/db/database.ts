@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { Transaction, Note, Category, Task, BalanceSnapshot, BudgetConfig } from '../types';
+import type { Transaction, Note, Category, Task, BalanceSnapshot, BudgetConfig, DailyPlan, DailyPlanCheck } from '../types';
 import { presetCategories } from './categories';
 
 export class AppDatabase extends Dexie {
@@ -9,6 +9,8 @@ export class AppDatabase extends Dexie {
   tasks!: Table<Task, number>;
   balanceSnapshots!: Table<BalanceSnapshot, number>;
   budgets!: Table<BudgetConfig, string>;
+  dailyPlans!: Table<DailyPlan, number>;
+  dailyPlanChecks!: Table<DailyPlanCheck, string>;
 
   constructor() {
     super('jiyiji');
@@ -31,6 +33,10 @@ export class AppDatabase extends Dexie {
       balanceSnapshots: 'id, effectiveAt',
     });
     this.version(4).stores({ budgets: 'month' });
+    this.version(5).stores({
+      dailyPlans: '++id, order',
+      dailyPlanChecks: 'id, planId, date',
+    });
   }
 }
 
@@ -47,23 +53,35 @@ export function invalidateCategoriesCache() {
 }
 
 // Initialize preset categories if not already present
-export async function importData(data: { transactions: any[]; notes: any[]; categories: any[]; balance?: BalanceSnapshot | null; budgets?: BudgetConfig[] }) {
-  await db.transaction('rw', [db.transactions, db.notes, db.categories, db.balanceSnapshots, db.budgets], async () => {
-  await db.transactions.clear();
-  await db.notes.clear();
-  await db.categories.clear();
-  await db.balanceSnapshots.clear();
-  await db.budgets.clear();
-  if (data.transactions.length) await db.transactions.bulkAdd(data.transactions);
-  if (data.notes.length) await db.notes.bulkAdd(data.notes);
-  if (data.categories.length) await db.categories.bulkAdd(data.categories);
-  if (data.balance && Number.isFinite(data.balance.amount) && data.balance.effectiveAt) {
-    await db.balanceSnapshots.put({ id: 1, amount: data.balance.amount, effectiveAt: data.balance.effectiveAt });
-  }
-  if (data.budgets?.length) await db.budgets.bulkAdd(data.budgets);
-  // Re-init presets if no categories were imported
-  const count = await db.categories.count();
-  if (count === 0) await initCategories();
+export async function importData(data: {
+  transactions: any[];
+  notes: any[];
+  categories: any[];
+  balance?: BalanceSnapshot | null;
+  budgets?: BudgetConfig[];
+  dailyPlans?: DailyPlan[];
+  dailyPlanChecks?: DailyPlanCheck[];
+}) {
+  await db.transaction('rw', [db.transactions, db.notes, db.categories, db.balanceSnapshots, db.budgets, db.dailyPlans, db.dailyPlanChecks], async () => {
+    await db.transactions.clear();
+    await db.notes.clear();
+    await db.categories.clear();
+    await db.balanceSnapshots.clear();
+    await db.budgets.clear();
+    await db.dailyPlans.clear();
+    await db.dailyPlanChecks.clear();
+    if (data.transactions.length) await db.transactions.bulkAdd(data.transactions);
+    if (data.notes.length) await db.notes.bulkAdd(data.notes);
+    if (data.categories.length) await db.categories.bulkAdd(data.categories);
+    if (data.balance && Number.isFinite(data.balance.amount) && data.balance.effectiveAt) {
+      await db.balanceSnapshots.put({ id: 1, amount: data.balance.amount, effectiveAt: data.balance.effectiveAt });
+    }
+    if (data.budgets?.length) await db.budgets.bulkAdd(data.budgets);
+    if (data.dailyPlans?.length) await db.dailyPlans.bulkAdd(data.dailyPlans);
+    if (data.dailyPlanChecks?.length) await db.dailyPlanChecks.bulkAdd(data.dailyPlanChecks);
+    // Re-init presets if no categories were imported
+    const count = await db.categories.count();
+    if (count === 0) await initCategories();
   });
   invalidateCategoriesCache();
 }
@@ -231,4 +249,78 @@ export async function deleteTask(id: number) {
 
 export async function getAllTasks() {
   return db.tasks.orderBy('date').reverse().toArray();
+}
+
+// 每日计划：固定任务模板
+function normalizePlanDays(days: number[]) {
+  const unique = Array.from(new Set(days.filter(day => Number.isInteger(day) && day >= 0 && day <= 6))).sort((a, b) => a - b);
+  // 七天全选等价于“每天”，统一存空数组，避免两套含义
+  return unique.length === 7 ? [] : unique;
+}
+
+export function isDailyPlanActiveOn(plan: DailyPlan, date: string) {
+  return plan.days.length === 0 || plan.days.includes(new Date(`${date}T00:00:00`).getDay());
+}
+
+export async function getDailyPlans() {
+  return db.dailyPlans.orderBy('order').toArray();
+}
+
+export async function addDailyPlan(input: { text: string; days: number[] }) {
+  const now = new Date().toISOString();
+  const last = await db.dailyPlans.orderBy('order').last();
+  return db.dailyPlans.add({
+    text: input.text,
+    days: normalizePlanDays(input.days),
+    order: (last?.order ?? -1) + 1,
+    createdAt: now,
+    updatedAt: now,
+  } as DailyPlan);
+}
+
+export async function updateDailyPlan(id: number, patch: Partial<Pick<DailyPlan, 'text' | 'days' | 'order'>>) {
+  const next: Partial<DailyPlan> = { ...patch, updatedAt: new Date().toISOString() };
+  if (patch.days) next.days = normalizePlanDays(patch.days);
+  return db.dailyPlans.update(id, next);
+}
+
+export async function deleteDailyPlan(id: number) {
+  await db.transaction('rw', [db.dailyPlans, db.dailyPlanChecks], async () => {
+    await db.dailyPlanChecks.where('planId').equals(id).delete();
+    await db.dailyPlans.delete(id);
+  });
+}
+
+// 交换两个计划在完整列表中的位置，用于当前可见清单内的上下移动
+export async function swapDailyPlanOrder(id: number, targetId: number) {
+  const plans = await getDailyPlans();
+  const index = plans.findIndex(plan => plan.id === id);
+  const targetIndex = plans.findIndex(plan => plan.id === targetId);
+  if (index < 0 || targetIndex < 0 || index === targetIndex) return;
+  const next = [...plans];
+  [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+  const now = new Date().toISOString();
+  await db.dailyPlans.bulkPut(next.map((plan, order) => ({ ...plan, order, updatedAt: now })));
+}
+
+// 每日计划：每天的打勾记录（只保存完成项，取消完成即删除）
+export async function getDailyPlanChecksBetween(startDate: string, endDate: string) {
+  return db.dailyPlanChecks.where('date').between(startDate, endDate, true, true).toArray();
+}
+
+export async function getDailyPlanChecksByDate(date: string) {
+  return db.dailyPlanChecks.where('date').equals(date).toArray();
+}
+
+export async function getAllDailyPlanChecks() {
+  return db.dailyPlanChecks.toArray();
+}
+
+export async function setDailyPlanCheck(planId: number, date: string, done: boolean) {
+  const id = `${planId}_${date}`;
+  if (!done) {
+    await db.dailyPlanChecks.delete(id);
+    return;
+  }
+  await db.dailyPlanChecks.put({ id, planId, date, done: true, updatedAt: new Date().toISOString() });
 }

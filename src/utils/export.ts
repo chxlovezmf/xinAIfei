@@ -1,4 +1,4 @@
-import type { Transaction, Category, BudgetConfig } from '../types';
+import type { Transaction, Category, BudgetConfig, DailyPlan, DailyPlanCheck } from '../types';
 import dayjs from 'dayjs';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
@@ -111,12 +111,41 @@ function fallbackCopy(text: string, resolve: (v: boolean) => void) {
   } catch { resolve(false); }
 }
 
-export function getExportDataString(transactions: Transaction[], notes: any[], categories: Category[], balance?: any, budgets: BudgetConfig[] = []) {
-  return JSON.stringify({ version: '1.2', exportedAt: new Date().toISOString(), transactions, notes, categories, balance: balance || null, budgets }, null, 2);
+export function getExportDataString(
+  transactions: Transaction[],
+  notes: any[],
+  categories: Category[],
+  balance?: any,
+  budgets: BudgetConfig[] = [],
+  dailyPlans: DailyPlan[] = [],
+  dailyPlanChecks: DailyPlanCheck[] = [],
+) {
+  return JSON.stringify({
+    version: '1.3',
+    exportedAt: new Date().toISOString(),
+    transactions,
+    notes,
+    categories,
+    balance: balance || null,
+    budgets,
+    dailyPlans,
+    dailyPlanChecks,
+  }, null, 2);
 }
 
-export function exportAllData(transactions: Transaction[], notes: any[], categories: Category[], balance?: any, budgets: BudgetConfig[] = []) {
-  downloadBlob(new Blob([getExportDataString(transactions, notes, categories, balance, budgets)], { type: 'application/json' }), `鑫菲日记_数据备份_${dayjs().format('YYYYMMDD')}.json`);
+export function exportAllData(
+  transactions: Transaction[],
+  notes: any[],
+  categories: Category[],
+  balance?: any,
+  budgets: BudgetConfig[] = [],
+  dailyPlans: DailyPlan[] = [],
+  dailyPlanChecks: DailyPlanCheck[] = [],
+) {
+  downloadBlob(
+    new Blob([getExportDataString(transactions, notes, categories, balance, budgets, dailyPlans, dailyPlanChecks)], { type: 'application/json' }),
+    `鑫菲日记_数据备份_${dayjs().format('YYYYMMDD')}.json`,
+  );
 }
 
 export interface ImportData {
@@ -125,21 +154,81 @@ export interface ImportData {
   categories: any[];
   balance?: any;
   budgets?: BudgetConfig[];
+  dailyPlans?: DailyPlan[];
+  dailyPlanChecks?: DailyPlanCheck[];
+}
+
+const BUDGET_KEYS = ['clothing', 'food', 'housing', 'transport'];
+
+function isValidBudget(budget: any) {
+  return !!budget
+    && /^\d{4}-(0[1-9]|1[0-2])$/.test(budget.month)
+    && !!budget.limits
+    && BUDGET_KEYS.every(key => budget.limits[key] === null || (typeof budget.limits[key] === 'number' && Number.isFinite(budget.limits[key]) && budget.limits[key] > 0))
+    && !!budget.assignments
+    && typeof budget.assignments === 'object'
+    && !Array.isArray(budget.assignments)
+    && Object.values(budget.assignments).every(value => BUDGET_KEYS.includes(value as string));
+}
+
+function isValidDailyPlan(plan: any) {
+  return !!plan
+    && Number.isInteger(plan.id) && plan.id > 0
+    && typeof plan.text === 'string' && plan.text.trim().length > 0
+    && Array.isArray(plan.days)
+    && plan.days.every((day: any) => Number.isInteger(day) && day >= 0 && day <= 6)
+    && new Set(plan.days).size === plan.days.length
+    && typeof plan.order === 'number' && Number.isFinite(plan.order)
+    && typeof plan.createdAt === 'string';
+}
+
+function isValidDailyPlanCheck(check: any) {
+  return !!check
+    && typeof check.id === 'string'
+    && Number.isInteger(check.planId) && check.planId > 0
+    && typeof check.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(check.date)
+    && typeof check.done === 'boolean'
+    && check.id === `${check.planId}_${check.date}`;
 }
 
 export function importAllData(jsonStr: string): ImportData | null {
   try {
     const data = JSON.parse(jsonStr);
-    if (!['1.0', '1.1', '1.2'].includes(data.version)) return null;
-    if (data.version === '1.2' && (!Array.isArray(data.transactions) || !Array.isArray(data.notes) || !Array.isArray(data.categories))) return null;
-    if (data.version !== '1.2' && [data.transactions, data.notes, data.categories].some(value => value != null && !Array.isArray(value))) return null;
-    if (data.version === '1.2') {
-      const keys = ['clothing', 'food', 'housing', 'transport'];
-      if (!Array.isArray(data.budgets) || !data.budgets.every((b: any) => b && /^\d{4}-(0[1-9]|1[0-2])$/.test(b.month) && b.limits && keys.every(k => b.limits[k] === null || (typeof b.limits[k] === 'number' && Number.isFinite(b.limits[k]) && b.limits[k] > 0)) && b.assignments && typeof b.assignments === 'object' && !Array.isArray(b.assignments) && Object.values(b.assignments).every(v => keys.includes(v as string)))) return null;
-      if (new Set(data.budgets.map((b: BudgetConfig) => b.month)).size !== data.budgets.length) return null;
+    if (!['1.0', '1.1', '1.2', '1.3'].includes(data.version)) return null;
+
+    // 1.0 / 1.1：仅账目、笔记、分类（字段可缺失）
+    if (data.version === '1.0' || data.version === '1.1') {
+      if ([data.transactions, data.notes, data.categories].some(value => value != null && !Array.isArray(value))) return null;
+      return {
+        transactions: data.transactions || [],
+        notes: data.notes || [],
+        categories: data.categories || [],
+        balance: data.balance || null,
+      };
     }
-    return { transactions: data.transactions || [], notes: data.notes || [], categories: data.categories || [], balance: data.balance || null, budgets: data.version === '1.2' ? data.budgets : undefined };
-    return null;
+
+    // 1.2 起：三个核心数组和预算必填
+    if (!Array.isArray(data.transactions) || !Array.isArray(data.notes) || !Array.isArray(data.categories)) return null;
+    if (!Array.isArray(data.budgets) || !data.budgets.every(isValidBudget)) return null;
+    if (new Set(data.budgets.map((budget: BudgetConfig) => budget.month)).size !== data.budgets.length) return null;
+
+    // 1.3 起：每日计划和打卡记录必填
+    if (data.version === '1.3') {
+      if (!Array.isArray(data.dailyPlans) || !data.dailyPlans.every(isValidDailyPlan)) return null;
+      if (!Array.isArray(data.dailyPlanChecks) || !data.dailyPlanChecks.every(isValidDailyPlanCheck)) return null;
+      if (new Set(data.dailyPlans.map((plan: DailyPlan) => plan.id)).size !== data.dailyPlans.length) return null;
+      if (new Set(data.dailyPlanChecks.map((check: DailyPlanCheck) => check.id)).size !== data.dailyPlanChecks.length) return null;
+    }
+
+    return {
+      transactions: data.transactions,
+      notes: data.notes,
+      categories: data.categories,
+      balance: data.balance || null,
+      budgets: data.budgets,
+      dailyPlans: data.version === '1.3' ? data.dailyPlans : undefined,
+      dailyPlanChecks: data.version === '1.3' ? data.dailyPlanChecks : undefined,
+    };
   } catch { return null; }
 }
 

@@ -1,7 +1,7 @@
 # 鑫菲日记 App — 版本更新修改指南
 
 > 每次更新功能后，需要同步修改一些"版本/名称"相关的必要信息。本文档列出所有需要修改的位置、当前值，以及修改步骤。
-> 最后更新：2026-10-29（对应 v1.6.0）
+> 最后更新：2026-11-13（对应 v1.7.0）
 
 ---
 
@@ -9,9 +9,9 @@
 
 | 位置 | 文件 | 当前值 | 说明 |
 |---|---|---|---|
-| 1 | `package.json` | `"version": "1.6.0"` | 应用版本；设置页直接读取此值 |
-| 2 | `package-lock.json` | 根项目版本 `1.6.0` | 与 `package.json` 保持一致，不修改依赖自身的版本 |
-| 3 | `android/app/build.gradle` | `versionCode 5`、`versionName "1.6.0"` | Android 版本；发布新版本时递增 versionCode，versionName 与应用版本一致 |
+| 1 | `package.json` | `"version": "1.7.0"` | 应用版本；设置页直接读取此值 |
+| 2 | `package-lock.json` | 根项目版本 `1.7.0` | 与 `package.json` 保持一致，不修改依赖自身的版本 |
+| 3 | `android/app/build.gradle` | `versionCode 6`、`versionName "1.7.0"` | Android 版本；发布新版本时递增 versionCode，versionName 与应用版本一致 |
 
 > 设置页版本号来自 `package.json`。升级版本不会清除用户自定义寄语。
 
@@ -25,8 +25,8 @@
 | 2 | `index.html` `apple-mobile-web-app-title` | `鑫菲日记` | iOS 添加到主屏幕显示名 |
 | 3 | `vite.config.ts` manifest | `name: '鑫菲日记 - 记事记账本'`、`short_name: '鑫菲日记'` | PWA 安装到桌面的显示名 |
 | 4 | `capacitor.config.ts` | `appName: '鑫菲日记'` | Android 原生 App 显示名 |
-| 5 | `src/pages/Home.tsx:125` | `鑫菲日记` | 首页大标题 |
-| 6 | `src/pages/Settings.tsx:274` / `:337` | `关于鑫菲日记` / `鑫菲日记` | 设置页标题与弹窗标题 |
+| 5 | `src/pages/Home.tsx:136` | `鑫菲日记` | 首页大标题 |
+| 6 | `src/pages/Settings.tsx:336` / `:401` | `关于鑫菲日记` / `鑫菲日记` | 设置页标题与弹窗标题 |
 | 7 | `src/pages/Settings.tsx` | `想把和她的一辈子都记录在这里` | 默认寄语文案，已有自定义寄语优先显示 |
 
 ---
@@ -38,6 +38,7 @@
 ```ts
 this.version(1).stores({ ... });   // 初始结构
 this.version(2).stores({ ... });   // 后来加了 tasks 表
+this.version(5).stores({ ... });   // 每日计划：dailyPlans、dailyPlanChecks
 ```
 
 - **新增表 或 修改字段索引**：必须在末尾追加 `this.version(N).stores({ ... })`（N = 当前最大版本 + 1）。
@@ -81,4 +82,4 @@ this.version(2).stores({ ... });   // 后来加了 tasks 表
 - **设置页版本**：直接读取 `package.json`，不用再分别修改两处显示文字。
 - **versionCode**：Android 发布更新时必须递增，否则商店/系统会认为是同一版本拒绝覆盖安装。
 - **备份文件名兼容**：新备份使用 `鑫菲日记_数据备份_` 前缀，恢复列表仍兼容旧的 `记一记_数据备份_` 前缀。
-- **备份文件里的 version 字段**（`src/utils/export.ts`）：当前 `1.2` 是备份数据格式版本，只有备份格式变了才改，不跟随 App 版本号。
+- **备份文件里的 version 字段**（`src/utils/export.ts`）：当前 `1.3` 是备份数据格式版本，只有备份格式变了才改，不跟随 App 版本号。1.3 新增 `dailyPlans`、`dailyPlanChecks`，导入时仍兼容 1.0–1.2 的旧备份。
