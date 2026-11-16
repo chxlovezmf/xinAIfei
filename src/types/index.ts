@@ -52,6 +52,7 @@ export interface Task {
 export interface DailyPlan {
   id?: number;
   text: string;
+  group?: string;
   days: number[];
   order: number;
   createdAt: string;

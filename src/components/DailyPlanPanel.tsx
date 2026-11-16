@@ -1,17 +1,19 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowDown, ArrowUp, Check, CheckCircle2, Circle, ListChecks, Pencil, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, BookOpen, Check, CheckCircle2, ChevronLeft, ChevronRight, Circle, Gamepad2, ListChecks, Pencil, Trash2, X } from 'lucide-react';
 import dayjs from 'dayjs';
 import type { DailyPlan } from '../types';
 import {
-  addDailyPlan, deleteDailyPlan, getDailyPlanChecksBetween, getDailyPlans,
+  addDailyPlan, countDailyPlanChecksBefore, deleteDailyPlan, deleteDailyPlanChecksBefore, getDailyPlanChecksBetween, getDailyPlanChecksByDate, getDailyPlans,
   isDailyPlanActiveOn, setDailyPlanCheck, swapDailyPlanOrder, updateDailyPlan,
 } from '../db/database';
 import { ListSkeleton } from './Skeleton';
 import EmptyState from './EmptyState';
+import DatePicker from './DatePicker';
 
 const WEEKDAY_LABELS = ['日', '一', '二', '三', '四', '五', '六'];
 const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
+const DEFAULT_GROUP = '日常清单';
 
 function daysLabel(days: number[]) {
   if (days.length === 0) return '每天';
@@ -28,35 +30,53 @@ function toggleDay(days: number[], day: number) {
 
 export default function DailyPlanPanel() {
   const today = dayjs().format('YYYY-MM-DD');
+  const [weekOffset, setWeekOffset] = useState(0);
   const weekDates = useMemo(
-    () => Array.from({ length: 7 }, (_, i) => dayjs().subtract(6 - i, 'day').format('YYYY-MM-DD')),
-    [],
+    () => Array.from({ length: 7 }, (_, i) => dayjs(today).subtract(weekOffset * 7 + 6 - i, 'day').format('YYYY-MM-DD')),
+    [today, weekOffset],
   );
+  const currentWeekStart = useRef(weekDates[0]);
+  const loadSequence = useRef(0);
+  useLayoutEffect(() => { currentWeekStart.current = weekDates[0]; }, [weekDates]);
 
   const [plans, setPlans] = useState<DailyPlan[]>([]);
   const [doneKeys, setDoneKeys] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [newText, setNewText] = useState('');
+  const [newGroup, setNewGroup] = useState(DEFAULT_GROUP);
   const [newDays, setNewDays] = useState<number[]>(ALL_DAYS);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editText, setEditText] = useState('');
+  const [editGroup, setEditGroup] = useState(DEFAULT_GROUP);
   const [editDays, setEditDays] = useState<number[]>(ALL_DAYS);
   const [sortMode, setSortMode] = useState(false);
+  const [showAll, setShowAll] = useState(false);
+  const [error, setError] = useState('');
+  const [cleanupBefore, setCleanupBefore] = useState(dayjs().subtract(1, 'year').format('YYYY-MM-DD'));
+  const [cleanupMessage, setCleanupMessage] = useState('');
 
   const load = useCallback(async () => {
+    if (currentWeekStart.current !== weekDates[0]) return;
+    const sequence = ++loadSequence.current;
+    const isCurrent = () => sequence === loadSequence.current && currentWeekStart.current === weekDates[0];
     try {
-      const [storedPlans, checks] = await Promise.all([
+      const [storedPlans, checks, todayChecks] = await Promise.all([
         getDailyPlans(),
-        getDailyPlanChecksBetween(weekDates[0], today),
+        getDailyPlanChecksBetween(weekDates[0], weekDates[6]),
+        getDailyPlanChecksByDate(today),
       ]);
+      if (!isCurrent()) return;
       setPlans(storedPlans);
-      setDoneKeys(new Set(checks.filter(check => check.done && check.id).map(check => check.id as string)));
+      setDoneKeys(new Set([...checks, ...todayChecks].filter(check => check.done && check.id).map(check => check.id as string)));
+      setError('');
+    } catch {
+      if (isCurrent()) setError('读取计划失败，请重新打开页面再试');
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   }, [today, weekDates]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void load(); return () => { loadSequence.current += 1; }; }, [load]);
 
   const todayPlans = useMemo(
     () => plans.filter(plan => isDailyPlanActiveOn(plan, today)),
@@ -65,7 +85,10 @@ export default function DailyPlanPanel() {
   const doneToday = todayPlans.filter(plan => plan.id != null && doneKeys.has(`${plan.id}_${today}`)).length;
   const totalToday = todayPlans.length;
   const progress = totalToday === 0 ? 0 : Math.round((doneToday / totalToday) * 100);
-  const matrixPlans = plans.filter(plan => weekDates.some(date => isDailyPlanActiveOn(plan, date)));
+  const matrixPlans = plans.filter(plan => weekDates.some(date => plan.id != null && doneKeys.has(`${plan.id}_${date}`)) ||
+    (weekOffset === 0 && weekDates.some(date => isDailyPlanActiveOn(plan, date))));
+  const visiblePlans = showAll ? plans : todayPlans;
+  const groups = Array.from(new Set(visiblePlans.map(plan => plan.group?.trim() || DEFAULT_GROUP)));
 
   const togglePlan = (plan: DailyPlan) => {
     if (plan.id == null) return;
@@ -76,13 +99,13 @@ export default function DailyPlanPanel() {
       if (nextDone) next.add(key); else next.delete(key);
       return next;
     });
-    void setDailyPlanCheck(plan.id, today, nextDone).catch(() => { void load(); });
+    void setDailyPlanCheck(plan.id, today, nextDone).catch(async () => { await load(); setError('打卡保存失败，请再试一次'); });
   };
 
   const handleAdd = async () => {
     const text = newText.trim();
     if (!text) return;
-    await addDailyPlan({ text, days: newDays });
+    await addDailyPlan({ text, days: newDays, group: newGroup });
     setNewText('');
     setNewDays(ALL_DAYS);
     await load();
@@ -91,6 +114,7 @@ export default function DailyPlanPanel() {
   const startEdit = (plan: DailyPlan) => {
     setEditingId(plan.id ?? null);
     setEditText(plan.text);
+    setEditGroup(plan.group?.trim() || DEFAULT_GROUP);
     setEditDays(plan.days.length ? plan.days : ALL_DAYS);
   };
 
@@ -98,7 +122,7 @@ export default function DailyPlanPanel() {
     if (editingId == null) return;
     const text = editText.trim();
     if (!text) return;
-    await updateDailyPlan(editingId, { text, days: editDays });
+    await updateDailyPlan(editingId, { text, days: editDays, group: editGroup.trim() || DEFAULT_GROUP });
     setEditingId(null);
     await load();
   };
@@ -112,11 +136,26 @@ export default function DailyPlanPanel() {
 
   const handleMove = async (plan: DailyPlan, direction: -1 | 1) => {
     if (plan.id == null) return;
-    const index = todayPlans.findIndex(item => item.id === plan.id);
-    const target = todayPlans[index + direction];
+    const groupPlans = visiblePlans.filter(item => (item.group?.trim() || DEFAULT_GROUP) === (plan.group?.trim() || DEFAULT_GROUP));
+    const index = groupPlans.findIndex(item => item.id === plan.id);
+    const target = groupPlans[index + direction];
     if (!target || target.id == null) return;
     await swapDailyPlanOrder(plan.id, target.id);
     await load();
+  };
+
+  const handleCleanup = async () => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(cleanupBefore) || cleanupBefore > today) return;
+    try {
+      const count = await countDailyPlanChecksBefore(cleanupBefore);
+      if (count === 0) { setCleanupMessage('该日期之前没有打卡记录'); return; }
+      if (!window.confirm(`将删除 ${cleanupBefore} 之前的 ${count} 条打卡记录，不能撤销。建议先在设置中导出备份。\n\n确定删除吗？`)) return;
+      const removed = await deleteDailyPlanChecksBefore(cleanupBefore);
+      await load();
+      setCleanupMessage(`已清理 ${removed} 条打卡记录`);
+    } catch {
+      setError('清理失败，请稍后重试');
+    }
   };
 
   const renderDayChips = (days: number[], onChange: (days: number[]) => void) => (
@@ -154,6 +193,7 @@ export default function DailyPlanPanel() {
 
   return (
     <div>
+      {error && <p role="alert" className="mb-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-200">{error}</p>}
       <div className="glass-card mb-3 px-4 py-3">
         <div className="flex items-baseline justify-between">
           <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">今日完成</p>
@@ -173,7 +213,8 @@ export default function DailyPlanPanel() {
         <p className="mt-1.5 text-xs text-gray-400">{encouragement}</p>
       </div>
 
-      <div className="mb-4 space-y-2">
+      <div className="glass-card mb-4 space-y-3 p-4">
+        <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">添加任务</p>
         <div className="flex gap-2">
           <input
             type="text"
@@ -186,15 +227,25 @@ export default function DailyPlanPanel() {
           />
           <button onClick={() => void handleAdd()} className="btn-primary px-4 text-sm">添加</button>
         </div>
+        <div className="flex items-center gap-2">
+          <label htmlFor="new-plan-group" className="shrink-0 text-xs text-gray-500 dark:text-gray-300">所属清单</label>
+          <input id="new-plan-group" list="plan-groups" value={newGroup} onChange={event => setNewGroup(event.target.value)} maxLength={24}
+            placeholder="例如：学习清单" className="input-field min-w-0 flex-1 py-2 text-sm" />
+          <datalist id="plan-groups">
+            {Array.from(new Set([DEFAULT_GROUP, '学习清单', '游戏清单', ...plans.map(plan => plan.group || DEFAULT_GROUP)])).map(group => <option key={group} value={group} />)}
+          </datalist>
+        </div>
         {renderDayChips(newDays, setNewDays)}
       </div>
 
       <div className="mb-2 flex items-center justify-between">
         <div>
-          <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">今日清单</p>
+          <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{showAll ? '全部任务' : '今日清单'}</p>
           <p className="text-xs text-gray-400">{dayjs().format('M月D日')} · 周{WEEKDAY_LABELS[dayjs().day()]}</p>
         </div>
-        {plans.length > 1 && (
+        <div className="flex items-center gap-2">
+        {plans.length > 0 && <button type="button" onClick={() => setShowAll(value => !value)} className="text-xs font-medium text-primary-600 dark:text-primary-300">{showAll ? '只看今天' : '全部任务'}</button>}
+        {visiblePlans.length > 1 && (
           <button
             type="button"
             onClick={() => setSortMode(value => !value)}
@@ -203,19 +254,32 @@ export default function DailyPlanPanel() {
             {sortMode ? '完成排序' : '排序'}
           </button>
         )}
+        </div>
       </div>
 
-      {todayPlans.length === 0 ? (
+      {visiblePlans.length === 0 ? (
         <EmptyState
           icon={<ListChecks size={40} />}
           title={plans.length === 0 ? '还没有固定任务' : '今天没有固定任务'}
           description={plans.length === 0 ? '添加每天要做的固定任务' : '今天不用打卡'}
         />
       ) : (
-        <div className="space-y-1.5">
-          {todayPlans.map((plan, index) => {
+        <div className="space-y-3">
+          {groups.map(group => {
+            const groupPlans = visiblePlans.filter(plan => (plan.group?.trim() || DEFAULT_GROUP) === group);
+            const scheduled = groupPlans.filter(plan => isDailyPlanActiveOn(plan, today));
+            const completed = scheduled.filter(plan => plan.id != null && doneKeys.has(`${plan.id}_${today}`)).length;
+            const GroupIcon = group.includes('学习') ? BookOpen : group.includes('游戏') ? Gamepad2 : ListChecks;
+            return <section key={group} className="glass-card overflow-hidden">
+              <div className="flex items-center gap-3 border-b border-gray-100 px-4 py-3 dark:border-gray-700">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-100 text-primary-600 dark:bg-primary-900/40 dark:text-primary-300"><GroupIcon size={20} /></span>
+                <div className="min-w-0 flex-1"><h3 className="break-words text-sm font-semibold text-gray-800 dark:text-gray-100">{group}</h3><p className="text-xs text-gray-500 dark:text-gray-400">今日 {completed} / {scheduled.length} 完成</p></div>
+                {scheduled.length > 0 && completed === scheduled.length && <CheckCircle2 size={19} className="shrink-0 text-primary-500" aria-label="今日全部完成" />}
+              </div>
+          {groupPlans.map((plan, index) => {
             const isEditing = editingId === plan.id;
             const isDone = plan.id != null && doneKeys.has(`${plan.id}_${today}`);
+            const activeToday = isDailyPlanActiveOn(plan, today);
             return (
               <motion.div
                 key={plan.id}
@@ -223,14 +287,15 @@ export default function DailyPlanPanel() {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.04, type: 'spring', stiffness: 300, damping: 24 }}
-                className="glass-card flex items-center gap-2 px-3 py-2.5"
+                className="flex items-start gap-2 border-b border-gray-100 px-4 py-3 last:border-0 dark:border-gray-700"
               >
                 <motion.button
                   whileTap={{ scale: 0.75 }}
                   onClick={() => togglePlan(plan)}
+                  disabled={!activeToday}
                   aria-label={isDone ? `将「${plan.text}」标记为未完成` : `将「${plan.text}」标记为完成`}
                   aria-pressed={isDone}
-                  className="shrink-0 text-gray-400 transition-colors hover:text-primary-500"
+                  className="mt-0.5 shrink-0 text-gray-400 transition-colors hover:text-primary-500 disabled:opacity-40"
                 >
                   {isDone ? (
                     <motion.div key="done" initial={{ scale: 0.5 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 500, damping: 15 }}>
@@ -250,6 +315,9 @@ export default function DailyPlanPanel() {
                       autoFocus
                       aria-label="编辑固定任务"
                     />
+                    <label className="block text-xs text-gray-500 dark:text-gray-300">所属清单
+                      <input list="plan-groups" value={editGroup} onChange={event => setEditGroup(event.target.value)} maxLength={24} className="input-field mt-1 w-full py-1.5 text-sm" />
+                    </label>
                     {renderDayChips(editDays, setEditDays)}
                     <div className="flex justify-end gap-1">
                       <button onClick={() => void saveEdit()} aria-label="保存固定任务" className="rounded-full bg-primary-500 p-1.5 text-white hover:bg-primary-600">
@@ -262,8 +330,8 @@ export default function DailyPlanPanel() {
                   </div>
                 ) : (
                   <div className="min-w-0 flex-1">
-                    <p className={'text-sm ' + (isDone ? 'text-gray-400 line-through' : 'text-gray-700 dark:text-gray-300')}>{plan.text}</p>
-                    <p className="text-[11px] text-gray-400">{daysLabel(plan.days)}</p>
+                    <p className={'break-words text-sm ' + (isDone ? 'text-gray-400 line-through' : 'text-gray-700 dark:text-gray-300')}>{plan.text}</p>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400">{daysLabel(plan.days)}{!activeToday ? ' · 今天未安排' : ''}</p>
                   </div>
                 )}
 
@@ -274,7 +342,7 @@ export default function DailyPlanPanel() {
                         className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-primary-500 disabled:opacity-30 dark:hover:bg-gray-700">
                         <ArrowUp size={14} />
                       </button>
-                      <button onClick={() => void handleMove(plan, 1)} disabled={index === todayPlans.length - 1} aria-label="下移固定任务"
+                      <button onClick={() => void handleMove(plan, 1)} disabled={index === groupPlans.length - 1} aria-label="下移固定任务"
                         className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-primary-500 disabled:opacity-30 dark:hover:bg-gray-700">
                         <ArrowDown size={14} />
                       </button>
@@ -293,50 +361,51 @@ export default function DailyPlanPanel() {
               </motion.div>
             );
           })}
+            </section>;
+          })}
         </div>
       )}
 
-      {matrixPlans.length > 0 && (
+      {plans.length > 0 && (
         <div className="mt-6">
           <div className="mb-2 flex items-center justify-between">
-            <h3 className="text-sm font-bold text-gray-800 dark:text-gray-200">最近 7 天</h3>
-            <div className="flex items-center gap-2 text-[11px] text-gray-400">
-              <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-primary-500" />完成</span>
-              <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full border border-gray-300 dark:border-gray-600" />未完成</span>
+            <h3 className="text-sm font-bold text-gray-800 dark:text-gray-200">打卡记录</h3>
+            <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-300">
+              <button type="button" onClick={() => setWeekOffset(value => value + 1)} aria-label="前七天" className="rounded-lg p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700"><ChevronLeft size={18} /></button>
+              <span>{dayjs(weekDates[0]).format('YYYY/M/D')}–{dayjs(weekDates[6]).format('YYYY/M/D')}</span>
+              <button type="button" onClick={() => setWeekOffset(value => Math.max(0, value - 1))} disabled={weekOffset === 0} aria-label="后七天" className="rounded-lg p-1.5 hover:bg-gray-100 disabled:opacity-30 dark:hover:bg-gray-700"><ChevronRight size={18} /></button>
             </div>
           </div>
+          <div className="mb-2 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400"><span>跳转日期</span>
+            <DatePicker label="跳转打卡日期" max={today} value={weekDates[6]} onChange={date => setWeekOffset(Math.floor(dayjs(today).diff(dayjs(date), 'day') / 7))} />
+          </div>
           <div className="glass-card overflow-x-auto px-3 py-3">
-            <div className="grid items-center gap-x-1 gap-y-2" style={{ gridTemplateColumns: 'minmax(4.5rem, 1fr) repeat(7, 1.5rem)' }}>
+            {matrixPlans.length === 0 ? <p className="py-3 text-center text-xs text-gray-500">这七天没有打卡记录</p> : (
+            <div className="grid min-w-[17.5rem] items-center gap-x-1 gap-y-3" style={{ gridTemplateColumns: 'minmax(3.5rem, 1.25fr) repeat(7, minmax(1.65rem, 1fr))' }}>
               <span />
               {weekDates.map(date => {
                 const isToday = date === today;
                 return (
-                  <span key={date} className={'text-center text-[10px] ' + (isToday ? 'font-bold text-primary-500' : 'text-gray-400')}>
-                    {WEEKDAY_LABELS[dayjs(date).day()]}
+                  <span key={date} className={'whitespace-nowrap text-center text-[10px] ' + (isToday ? 'font-bold text-primary-500' : 'text-gray-500')}>
+                    {dayjs(date).format('M/D')}
                   </span>
                 );
               })}
               {matrixPlans.map(plan => {
-                // 计划创建之前的日期不显示为“未完成”，避免新建任务出现一片空格子
-                const createdDate = typeof plan.createdAt === 'string' ? plan.createdAt.slice(0, 10) : '';
                 return (
                   <Fragment key={plan.id}>
                     <span className="truncate pr-1 text-[11px] text-gray-600 dark:text-gray-300">{plan.text}</span>
                     {weekDates.map(date => {
-                      const notCreatedYet = createdDate !== '' && date < createdDate;
-                      const active = !notCreatedYet && isDailyPlanActiveOn(plan, date);
-                      const done = active && plan.id != null && doneKeys.has(`${plan.id}_${date}`);
+                      const done = plan.id != null && doneKeys.has(`${plan.id}_${date}`);
                       return (
-                        <span key={date} className="flex justify-center" role="img"
-                          aria-label={`${plan.text} ${dayjs(date).format('M月D日')}：${notCreatedYet ? '计划尚未创建' : active ? (done ? '已完成' : '未完成') : '今天没有安排'}`}>
-                          {!active ? (
-                            <span className="h-4 w-4" />
-                          ) : done ? (
+                        <span key={date} className="flex items-center justify-center" role="img"
+                          aria-label={`${plan.text} ${dayjs(date).format('M月D日')}：${done ? '已打卡' : '没有打卡记录'}`}>
+                          {done ? (
                             <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary-500 text-white">
                               <Check size={11} strokeWidth={3} />
                             </span>
                           ) : (
-                            <span className="h-4 w-4 rounded-full border border-gray-300 dark:border-gray-600" />
+                            <span className="h-1 w-1 rounded-full bg-gray-300 dark:bg-gray-600" />
                           )}
                         </span>
                       );
@@ -345,7 +414,18 @@ export default function DailyPlanPanel() {
                 );
               })}
             </div>
+            )}
           </div>
+          <details className="mt-3 rounded-xl border border-gray-200 px-3 py-2 dark:border-gray-700">
+            <summary className="cursor-pointer text-xs font-medium text-gray-600 dark:text-gray-300">管理历史记录</summary>
+            <p className="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">清理前建议先导出备份。</p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="text-xs text-gray-600 dark:text-gray-300">清理早于</span>
+              <DatePicker label="清理早于日期" max={today} value={cleanupBefore} onChange={date => { setCleanupBefore(date); setCleanupMessage(''); }} className="flex-1" />
+              <button type="button" onClick={() => void handleCleanup()} disabled={!cleanupBefore || cleanupBefore > today} className="rounded-lg border border-red-200 px-3 py-2 text-xs text-red-600 disabled:opacity-40 dark:border-red-800 dark:text-red-300">清理</button>
+            </div>
+            {cleanupMessage && <p role="status" className="mt-2 text-xs text-gray-600 dark:text-gray-300">{cleanupMessage}</p>}
+          </details>
         </div>
       )}
     </div>

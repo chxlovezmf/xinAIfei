@@ -12,16 +12,24 @@ start.bat
 
 # Private user data and local credentials
 /主题图片素材/
+/public/themes/bubu/分类的五个分类图.png.png
+/public/themes/bubu/支出的十二个分类图.png
 *_数据备份_*.json
 *.backup.json
 *.jiyiji-backup.json
+*backup*.json
+*备份*.json
 .env
 .env.*
 !.env.example
 *.keystore
 *.jks
+*.p12
+*.pfx
 google-services.json
-.claude/settings.local.json
+/.claude/
+/android/.idea/
+/android/.kotlin/
 
 # Local Android / release artifacts
 *.apk

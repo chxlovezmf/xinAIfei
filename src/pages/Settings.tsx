@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Sun, Moon, Database, Download, Upload, Palette, Info, HardDrive, CheckCircle, XCircle } from "lucide-react";
 import type { Category } from "../types";
 import dayjs from "dayjs";
-import { getCategories, addCategory, deleteCategory, updateCategory, getAllTransactions, getAllNotes, getBalanceSnapshot, getAllBudgets, getDailyPlans, getAllDailyPlanChecks, importData } from "../db/database";
+import { getCategories, addCategory, deleteCategory, updateCategory, getAllTransactions, getAllNotes, getAllTasks, getBalanceSnapshot, getAllBudgets, getDailyPlans, getAllDailyPlanChecks, importData } from "../db/database";
 import { PageTransition } from "../components/Layout";
 import CategoryIcon from "../components/CategoryIcon";
 import CategoryIconPicker from "../components/CategoryIconPicker";
@@ -55,14 +55,16 @@ export default function Settings() {
   const [aboutText] = useState(() => localStorage.getItem('aboutText') || DEFAULT_ABOUT_TEXT);
 
   const showToast = (type:'success'|'error', message:string) => { setToast({type,message}); setTimeout(()=>setToast(null),3000); };
-  const confirmLegacyImport = (data: ImportData) => {
+  const confirmImport = (data: ImportData) => {
     const missing = [!data.budgets && '预算', !data.dailyPlans && '每日计划'].filter(Boolean);
-    if (!missing.length) return true;
-    return window.confirm(`此旧备份不包含${missing.join('和')}。导入会替换当前数据并清除当前的${missing.join('和')}设置，是否继续？`);
+    const legacyNote = missing.length ? `\n此备份不包含${missing.join('和')}，导入后这些数据会被清空。` : '';
+    const taskNote = data.tasks === undefined ? '\n此备份不包含日程，现有日程会保留。' : '\n当前日程也会被替换。';
+    return window.confirm(`导入会替换当前账目、日记、分类、余额、预算和每日计划。建议先导出备份。${legacyNote}${taskNote}\n\n确定继续吗？`);
   };
   const importSummary = (data: ImportData) =>
     "发现 " + data.transactions.length + " 条账目、" + data.notes.length + " 条笔记、" + data.categories.length + " 个分类、" +
-    (data.dailyPlans?.length ?? 0) + " 项每日计划、" + (data.dailyPlanChecks?.length ?? 0) + " 条打卡记录";
+    (data.dailyPlans?.length ?? 0) + " 项每日计划、" + (data.dailyPlanChecks?.length ?? 0) + " 条打卡记录" +
+    (data.tasks === undefined ? '，日程保留' : '、' + data.tasks.length + ' 条日程');
   const formatBytes = (b:number) => b<1024 ? b+' B' : b<1048576 ? (b/1024).toFixed(1)+' KB' : (b/1048576).toFixed(1)+' MB';
   const selectAppTheme = (theme: 'petal'|'bubu') => {
     setAppTheme(theme);
@@ -88,8 +90,8 @@ export default function Settings() {
   const [editingAbout, setEditingAbout] = useState(false);
 
   const handleExportToFile = async () => {
-    const [txs,notes,cats,balance,budgets,dailyPlans,dailyPlanChecks] = await Promise.all([getAllTransactions(),getAllNotes(),getCategories(),getBalanceSnapshot(),getAllBudgets(),getDailyPlans(),getAllDailyPlanChecks()]);
-    const jsonStr = getExportDataString(txs, notes, cats, balance, budgets, dailyPlans, dailyPlanChecks);
+    const [txs,notes,cats,balance,budgets,dailyPlans,dailyPlanChecks,tasks] = await Promise.all([getAllTransactions(),getAllNotes(),getCategories(),getBalanceSnapshot(),getAllBudgets(),getDailyPlans(),getAllDailyPlanChecks(),getAllTasks()]);
+    const jsonStr = getExportDataString(txs, notes, cats, balance, budgets, dailyPlans, dailyPlanChecks, tasks);
     const fileName = `鑫菲日记_数据备份_${dayjs().format('YYYYMMDD_HHmmss')}.json`;
     const saved = await nativeExport(jsonStr, fileName);
     if (saved) {
@@ -100,13 +102,13 @@ export default function Settings() {
         showToast('success','备份已保存到"文档"文件夹，打开手机"文件管理"可找到');
       }
     } else {
-      exportAllData(txs,notes,cats,balance,budgets,dailyPlans,dailyPlanChecks);
+      exportAllData(txs,notes,cats,balance,budgets,dailyPlans,dailyPlanChecks,tasks);
       showToast('success','文件已下载到本地');
     }
   };
   const handleExportToClipboard = async () => {
-    const [txs,notes,cats,balance,budgets,dailyPlans,dailyPlanChecks] = await Promise.all([getAllTransactions(),getAllNotes(),getCategories(),getBalanceSnapshot(),getAllBudgets(),getDailyPlans(),getAllDailyPlanChecks()]);
-    const jsonStr = getExportDataString(txs, notes, cats, balance, budgets, dailyPlans, dailyPlanChecks);
+    const [txs,notes,cats,balance,budgets,dailyPlans,dailyPlanChecks,tasks] = await Promise.all([getAllTransactions(),getAllNotes(),getCategories(),getBalanceSnapshot(),getAllBudgets(),getDailyPlans(),getAllDailyPlanChecks(),getAllTasks()]);
+    const jsonStr = getExportDataString(txs, notes, cats, balance, budgets, dailyPlans, dailyPlanChecks, tasks);
     const ok = await copyToClipboard(jsonStr);
     if (ok) {
       showToast('success','数据已复制到剪贴板，粘贴到备忘录等地方保存即可');
@@ -122,13 +124,13 @@ export default function Settings() {
       // Remove BOM if present
       const cleanText = text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text;
       const data = importAllData(cleanText);
-      if(data) { if (!confirmLegacyImport(data)) return; await importData(data); setCategories(await getCategories()); setImportStatus(importSummary(data)); showToast('success','数据导入成功'); }
+      if(data) { if (!confirmImport(data)) return; await importData(data); setCategories(await getCategories()); setImportStatus(importSummary(data)); showToast('success','数据导入成功'); }
       else { setImportStatus("文件格式不正确，请检查备份文件"); showToast('error','文件格式不正确'); }
     }; input.click();
   };
   const handlePasteImportConfirm = async () => {
     const data = importAllData(pasteText);
-    if(data) { if (!confirmLegacyImport(data)) return; await importData(data); setCategories(await getCategories()); setImportStatus(importSummary(data)); showToast('success','数据导入成功'); setShowPasteImport(false); setPasteText(""); }
+    if(data) { if (!confirmImport(data)) return; await importData(data); setCategories(await getCategories()); setImportStatus(importSummary(data)); showToast('success','数据导入成功'); setShowPasteImport(false); setPasteText(""); }
     else { showToast('error','粘贴内容不是有效的备份数据，请检查是否完整复制了全部JSON'); }
   };
   const handleShowRestore = async () => {
@@ -142,7 +144,7 @@ export default function Settings() {
     if (!text) { showToast('error','无法读取备份文件'); return; }
     const data = importAllData(text);
     if (!data) { showToast('error','文件内容格式不正确'); return; }
-    if (!confirmLegacyImport(data)) return;
+    if (!confirmImport(data)) return;
     await importData(data);
     setCategories(await getCategories());
     setImportStatus(importSummary(data));
@@ -226,44 +228,39 @@ export default function Settings() {
           </div>
           <div className="flex gap-2">
             <button onClick={handleExportToFile} className="btn-secondary flex-1 gap-1 text-xs py-2"><Download size={14}/>导出为文件</button>
-            <button onClick={handleExportToClipboard} className="btn-secondary flex-1 gap-1 text-xs py-2"><Download size={14}/>复制到剪贴板</button>
-          </div>
-          <div className="flex gap-2 mt-2">
             <button onClick={handleImport} className="btn-secondary flex-1 gap-1 text-xs py-2"><Upload size={14}/>导入文件</button>
-            <button onClick={handleShowRestore} className="btn-secondary flex-1 gap-1 text-xs py-2"><Download size={14}/>本地恢复（Android）</button>
           </div>
-          <button onClick={()=>{setShowPasteImport(true);setPasteText("");}} className="btn-secondary mt-2 w-full gap-1 text-xs py-2"><Upload size={14}/>粘贴导入（备用）</button>
-          {importStatus&&<p className="mt-2 text-xs text-gray-500">{importStatus}</p>}
-        </div>
-
-        <div className="glass-card mb-3 p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-3">
-              <div className="rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 p-2 text-white shadow-sm"><HardDrive size={18}/></div>
-              <p className="text-sm font-medium text-gray-800 dark:text-gray-200">存储空间</p>
+          <details className="mt-3 border-t border-gray-100 pt-3 dark:border-gray-700">
+            <summary className="cursor-pointer text-xs font-medium text-gray-600 dark:text-gray-300">更多备份方式</summary>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button onClick={handleExportToClipboard} className="btn-secondary gap-1 py-2 text-xs"><Download size={14}/>复制到剪贴板</button>
+              <button onClick={()=>{setShowPasteImport(true);setPasteText("");}} className="btn-secondary gap-1 py-2 text-xs"><Upload size={14}/>粘贴导入</button>
+              <button onClick={handleShowRestore} className="btn-secondary col-span-2 gap-1 py-2 text-xs"><Download size={14}/>本地恢复（Android）</button>
             </div>
+          </details>
+          {importStatus&&<p className="mt-2 text-xs text-gray-500">{importStatus}</p>}
+          <details className="mt-3 border-t border-gray-100 pt-3 dark:border-gray-700">
+            <summary className="cursor-pointer text-xs font-medium text-gray-600 dark:text-gray-300"><HardDrive size={14} className="mr-1 inline-block" />存储空间与清理</summary>
+            <div className="mt-3 space-y-2 text-xs">
+              <div className="flex justify-between gap-2"><span className="text-gray-500 dark:text-gray-400">账目、日记和分类（估算）</span><span className="text-gray-700 dark:text-gray-300">{storageSize || '计算中...'}</span></div>
+              <div className="flex justify-between gap-2"><span className="text-gray-500 dark:text-gray-400">头像图片</span><span className="text-gray-700 dark:text-gray-300">{avatarSize || '计算中...'}</span></div>
+              <div className="flex justify-between gap-2"><span className="text-gray-500 dark:text-gray-400">背景图片</span><span className="text-gray-700 dark:text-gray-300">{bgSize || '计算中...'}</span></div>
+            </div>
+            {(avatarSize && avatarSize !== '未设置') || (bgSize && bgSize !== '未设置') ? (
+              <div className="mt-3 flex gap-2">
+                {avatarSize && avatarSize !== '未设置' && <button onClick={()=>{localStorage.removeItem('avatar');showToast('success','头像已清除');setTimeout(()=>window.location.reload(),1000);}} className="flex-1 rounded-lg bg-gray-50 py-2 text-xs text-gray-500 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600">清除头像</button>}
+                {bgSize && bgSize !== '未设置' && <button onClick={()=>{localStorage.removeItem('cardBg');showToast('success','背景图已清除，将恢复默认');setTimeout(()=>window.location.reload(),1000);}} className="flex-1 rounded-lg bg-gray-50 py-2 text-xs text-gray-500 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600">清除背景图</button>}
+              </div>
+            ) : null}
             <button onClick={()=>{
-              if(window.confirm('确定要清除所有数据吗？此操作不可恢复！\n\n建议先导出备份再清除。')) {
+              if(window.confirm('将清除账目、日记、日程、分类、余额和预算，无法撤销。每日计划和图片会保留。\n\n建议先导出备份。确定清除吗？')) {
                 import('../db/database').then(async({db})=>{await db.transactions.clear();await db.notes.clear();await db.categories.clear();await db.tasks.clear();await db.balanceSnapshots.clear();await db.budgets.clear();
                   const{initCategories}=await import('../db/database');await initCategories();
-                  showToast('success','数据已清除，请在手机设置中清除应用缓存后重新打开');
+                  showToast('success','账目、日记等数据已清除');
                 });
               }
-            }} className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30">清除数据</button>
-          </div>
-          {(avatarSize&&avatarSize!=='未设置')||(bgSize&&bgSize!=='未设置')?(
-            <div className="mb-3 flex gap-2">
-              <button onClick={()=>{localStorage.removeItem('avatar');showToast('success','头像已清除');setTimeout(()=>window.location.reload(),1000);}} className="flex-1 rounded-lg bg-gray-50 py-1.5 text-xs text-gray-500 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600">清除头像（{avatarSize}）</button>
-              <button onClick={()=>{localStorage.removeItem('cardBg');showToast('success','背景图已清除，将恢复默认');setTimeout(()=>window.location.reload(),1000);}} className="flex-1 rounded-lg bg-gray-50 py-1.5 text-xs text-gray-500 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600">清除背景图（{bgSize}）</button>
-            </div>
-          ):null}
-          <div className="space-y-1.5 text-xs">
-            <div className="flex justify-between"><span className="text-gray-500">账目/日记记录</span><span className="text-gray-700 dark:text-gray-300">{storageSize}</span></div>
-            <div className="flex justify-between"><span className="text-gray-500">头像图片</span><span className="text-gray-700 dark:text-gray-300">{avatarSize}</span></div>
-            <div className="flex justify-between"><span className="text-gray-500">背景图片</span><span className="text-gray-700 dark:text-gray-300">{bgSize}</span></div>
-            <div className="border-t border-gray-100 pt-1 dark:border-gray-700"/>
-            <div className="flex justify-between font-medium"><span className="text-gray-600 dark:text-gray-400">本地存储总计</span><span className="text-gray-800 dark:text-gray-200">{avatarSize&&bgSize?formatBytes((()=>{const a=(localStorage.getItem('avatar')||'').length,b=(localStorage.getItem('cardBg')||'').length;return a+b;})()):'计算中...'}</span></div>
-          </div>
+            }} className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-500 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30">清除账目和日记等数据</button>
+          </details>
         </div>
 
         <div className="glass-card mb-3 p-4">

@@ -1,4 +1,4 @@
-import type { Transaction, Category, BudgetConfig, DailyPlan, DailyPlanCheck } from '../types';
+import type { Transaction, Category, BudgetConfig, DailyPlan, DailyPlanCheck, Task } from '../types';
 import dayjs from 'dayjs';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
@@ -115,13 +115,14 @@ export function getExportDataString(
   transactions: Transaction[],
   notes: any[],
   categories: Category[],
-  balance?: any,
-  budgets: BudgetConfig[] = [],
-  dailyPlans: DailyPlan[] = [],
-  dailyPlanChecks: DailyPlanCheck[] = [],
+  balance: any,
+  budgets: BudgetConfig[],
+  dailyPlans: DailyPlan[],
+  dailyPlanChecks: DailyPlanCheck[],
+  tasks: Task[],
 ) {
   return JSON.stringify({
-    version: '1.3',
+    version: '1.4',
     exportedAt: new Date().toISOString(),
     transactions,
     notes,
@@ -130,6 +131,7 @@ export function getExportDataString(
     budgets,
     dailyPlans,
     dailyPlanChecks,
+    tasks,
   }, null, 2);
 }
 
@@ -137,13 +139,14 @@ export function exportAllData(
   transactions: Transaction[],
   notes: any[],
   categories: Category[],
-  balance?: any,
-  budgets: BudgetConfig[] = [],
-  dailyPlans: DailyPlan[] = [],
-  dailyPlanChecks: DailyPlanCheck[] = [],
+  balance: any,
+  budgets: BudgetConfig[],
+  dailyPlans: DailyPlan[],
+  dailyPlanChecks: DailyPlanCheck[],
+  tasks: Task[],
 ) {
   downloadBlob(
-    new Blob([getExportDataString(transactions, notes, categories, balance, budgets, dailyPlans, dailyPlanChecks)], { type: 'application/json' }),
+    new Blob([getExportDataString(transactions, notes, categories, balance, budgets, dailyPlans, dailyPlanChecks, tasks)], { type: 'application/json' }),
     `鑫菲日记_数据备份_${dayjs().format('YYYYMMDD')}.json`,
   );
 }
@@ -156,6 +159,7 @@ export interface ImportData {
   budgets?: BudgetConfig[];
   dailyPlans?: DailyPlan[];
   dailyPlanChecks?: DailyPlanCheck[];
+  tasks?: Task[];
 }
 
 const BUDGET_KEYS = ['clothing', 'food', 'housing', 'transport'];
@@ -175,6 +179,7 @@ function isValidDailyPlan(plan: any) {
   return !!plan
     && Number.isInteger(plan.id) && plan.id > 0
     && typeof plan.text === 'string' && plan.text.trim().length > 0
+    && (plan.group === undefined || (typeof plan.group === 'string' && plan.group.trim().length > 0))
     && Array.isArray(plan.days)
     && plan.days.every((day: any) => Number.isInteger(day) && day >= 0 && day <= 6)
     && new Set(plan.days).size === plan.days.length
@@ -191,10 +196,21 @@ function isValidDailyPlanCheck(check: any) {
     && check.id === `${check.planId}_${check.date}`;
 }
 
+function isValidTask(task: any) {
+  return !!task
+    && Number.isInteger(task.id) && task.id > 0
+    && typeof task.text === 'string' && task.text.trim().length > 0
+    && typeof task.done === 'boolean'
+    // Earlier versions allowed the native date field to be cleared.
+    && typeof task.date === 'string' && (task.date === '' || /^\d{4}-\d{2}-\d{2}$/.test(task.date))
+    && typeof task.createdAt === 'string'
+    && typeof task.updatedAt === 'string';
+}
+
 export function importAllData(jsonStr: string): ImportData | null {
   try {
     const data = JSON.parse(jsonStr);
-    if (!['1.0', '1.1', '1.2', '1.3'].includes(data.version)) return null;
+    if (!['1.0', '1.1', '1.2', '1.3', '1.4'].includes(data.version)) return null;
 
     // 1.0 / 1.1：仅账目、笔记、分类（字段可缺失）
     if (data.version === '1.0' || data.version === '1.1') {
@@ -213,11 +229,16 @@ export function importAllData(jsonStr: string): ImportData | null {
     if (new Set(data.budgets.map((budget: BudgetConfig) => budget.month)).size !== data.budgets.length) return null;
 
     // 1.3 起：每日计划和打卡记录必填
-    if (data.version === '1.3') {
+    if (data.version === '1.3' || data.version === '1.4') {
       if (!Array.isArray(data.dailyPlans) || !data.dailyPlans.every(isValidDailyPlan)) return null;
       if (!Array.isArray(data.dailyPlanChecks) || !data.dailyPlanChecks.every(isValidDailyPlanCheck)) return null;
       if (new Set(data.dailyPlans.map((plan: DailyPlan) => plan.id)).size !== data.dailyPlans.length) return null;
       if (new Set(data.dailyPlanChecks.map((check: DailyPlanCheck) => check.id)).size !== data.dailyPlanChecks.length) return null;
+    }
+
+    if (data.version === '1.4') {
+      if (!Array.isArray(data.tasks) || !data.tasks.every(isValidTask)) return null;
+      if (new Set(data.tasks.map((task: Task) => task.id)).size !== data.tasks.length) return null;
     }
 
     return {
@@ -226,8 +247,9 @@ export function importAllData(jsonStr: string): ImportData | null {
       categories: data.categories,
       balance: data.balance || null,
       budgets: data.budgets,
-      dailyPlans: data.version === '1.3' ? data.dailyPlans : undefined,
-      dailyPlanChecks: data.version === '1.3' ? data.dailyPlanChecks : undefined,
+      dailyPlans: data.version === '1.3' || data.version === '1.4' ? data.dailyPlans : undefined,
+      dailyPlanChecks: data.version === '1.3' || data.version === '1.4' ? data.dailyPlanChecks : undefined,
+      tasks: data.version === '1.4' ? data.tasks : undefined,
     };
   } catch { return null; }
 }

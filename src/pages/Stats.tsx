@@ -3,13 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, PointElement, LineElement, Filler } from 'chart.js';
 import { Doughnut, Bar, Line } from 'react-chartjs-2';
-import { Download, Calendar, X, Pencil, Check } from 'lucide-react';
+import { Download, X, Pencil, Check } from 'lucide-react';
 import type { Transaction, Category } from '../types';
 import { getTransactionsByMonth, getCategories, getTransactionsByDateRange, getBalanceSnapshot, getCurrentBalance, setBalanceSnapshot } from '../db/database';
 import { formatAmount, getCurrentMonth } from '../utils/format';
 import { exportToExcel } from '../utils/export';
 import { PageTransition } from '../components/Layout';
 import MonthPicker from '../components/MonthPicker';
+import DatePicker from '../components/DatePicker';
 import AnimatedNumber from '../components/AnimatedNumber';
 import { CardSkeleton } from '../components/Skeleton';
 import dayjs from 'dayjs';
@@ -313,21 +314,9 @@ export default function Stats() {
             <MonthPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
           </div>
         ) : (
-          <div className="glass-card mb-4 flex items-center gap-2 px-4 py-2.5">
-            <Calendar size={16} className="text-gray-400 shrink-0" />
-            <input
-              type="date"
-              value={rangeStart}
-              onChange={(e) => setRangeStart(e.target.value)}
-              className="flex-1 border-none bg-transparent text-sm text-gray-700 outline-none dark:text-gray-300 [color-scheme:light] dark:[color-scheme:dark]"
-            />
-            <span className="text-xs text-gray-400">至</span>
-            <input
-              type="date"
-              value={rangeEnd}
-              onChange={(e) => setRangeEnd(e.target.value)}
-              className="flex-1 border-none bg-transparent text-sm text-gray-700 outline-none dark:text-gray-300 [color-scheme:light] dark:[color-scheme:dark]"
-            />
+          <div className="glass-card mb-4 grid gap-2 p-3 min-[420px]:grid-cols-2">
+            <div className="min-w-0"><p className="mb-1 text-xs text-gray-500 dark:text-gray-400">开始日期</p><DatePicker label="统计开始日期" value={rangeStart} onChange={setRangeStart} className="w-full" /></div>
+            <div className="min-w-0"><p className="mb-1 text-xs text-gray-500 dark:text-gray-400">结束日期</p><DatePicker label="统计结束日期" value={rangeEnd} onChange={setRangeEnd} className="w-full" /></div>
           </div>
         )}
 

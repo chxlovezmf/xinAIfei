@@ -1,10 +1,24 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import { rmSync } from 'node:fs'
+import { resolve } from 'node:path'
+
+const localArtFiles = ['分类的五个分类图.png.png', '支出的十二个分类图.png']
 
 export default defineConfig({
   plugins: [
     react(),
+    {
+      name: 'exclude-local-source-art',
+      apply: 'build',
+      writeBundle(options) {
+        if (!options.dir) return
+        for (const file of localArtFiles) {
+          rmSync(resolve(options.dir, 'themes/bubu', file), { force: true })
+        }
+      },
+    },
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'app-icon-48.png', 'app-icon-180.png', 'app-icon-192.png', 'app-icon-512.png'],

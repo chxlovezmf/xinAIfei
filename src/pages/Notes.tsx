@@ -9,6 +9,7 @@ import { PageTransition } from '../components/Layout';
 import EmptyState from '../components/EmptyState';
 import { ListSkeleton } from '../components/Skeleton';
 import DailyPlanPanel from '../components/DailyPlanPanel';
+import DatePicker from '../components/DatePicker';
 import dayjs from 'dayjs';
 
 export default function Notes() {
@@ -228,17 +229,10 @@ export default function Notes() {
                 onKeyDown={(e) => e.key === 'Enter' && addTask()} placeholder="添加新任务..." className="input-field flex-1 text-sm" />
               <button onClick={addTask} className="btn-primary px-4 text-sm">添加</button>
             </div>
-            <label className="mb-4 flex items-center gap-2 rounded-2xl border border-gray-200 bg-white/70 px-3 py-2 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-800/70 dark:text-gray-400">
-              <CalendarDays size={15} className="shrink-0 text-primary-500" />
-              <span>安排日期</span>
-              <input
-                type="date"
-                value={taskDate}
-                onChange={(e) => setTaskDate(e.target.value)}
-                className="ml-auto border-none bg-transparent text-sm text-gray-700 outline-none dark:text-gray-200 [color-scheme:light] dark:[color-scheme:dark]"
-                aria-label="日程日期"
-              />
-            </label>
+            <div className="mb-4 flex items-center gap-2">
+              <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">安排日期</span>
+              <DatePicker label="日程日期" value={taskDate} onChange={setTaskDate} className="flex-1" />
+            </div>
             {tasksLoading ? <ListSkeleton /> : tasks.length === 0 ? (
               <EmptyState title="还没有任务" description="添加一个任务开始规划吧"
                 illustration={isBubuTheme ? '/themes/bubu/notes-empty.webp' : undefined}

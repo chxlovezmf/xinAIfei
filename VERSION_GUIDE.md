@@ -1,7 +1,7 @@
 # 鑫菲日记 App — 版本更新修改指南
 
 > 每次更新功能后，需要同步修改一些"版本/名称"相关的必要信息。本文档列出所有需要修改的位置、当前值，以及修改步骤。
-> 最后更新：2026-11-13（对应 v1.7.0）
+> 最后更新：2026-11-16（对应 v1.7.1）
 
 ---
 
@@ -9,9 +9,9 @@
 
 | 位置 | 文件 | 当前值 | 说明 |
 |---|---|---|---|
-| 1 | `package.json` | `"version": "1.7.0"` | 应用版本；设置页直接读取此值 |
-| 2 | `package-lock.json` | 根项目版本 `1.7.0` | 与 `package.json` 保持一致，不修改依赖自身的版本 |
-| 3 | `android/app/build.gradle` | `versionCode 6`、`versionName "1.7.0"` | Android 版本；发布新版本时递增 versionCode，versionName 与应用版本一致 |
+| 1 | `package.json` | `"version": "1.7.1"` | 应用版本；设置页直接读取此值 |
+| 2 | `package-lock.json` | 根项目版本 `1.7.1` | 与 `package.json` 保持一致，不修改依赖自身的版本 |
+| 3 | `android/app/build.gradle` | `versionCode 7`、`versionName "1.7.1"` | Android 版本；发布新版本时递增 versionCode，versionName 与应用版本一致 |
 
 > 设置页版本号来自 `package.json`。升级版本不会清除用户自定义寄语。
 
@@ -82,4 +82,4 @@ this.version(5).stores({ ... });   // 每日计划：dailyPlans、dailyPlanCheck
 - **设置页版本**：直接读取 `package.json`，不用再分别修改两处显示文字。
 - **versionCode**：Android 发布更新时必须递增，否则商店/系统会认为是同一版本拒绝覆盖安装。
 - **备份文件名兼容**：新备份使用 `鑫菲日记_数据备份_` 前缀，恢复列表仍兼容旧的 `记一记_数据备份_` 前缀。
-- **备份文件里的 version 字段**（`src/utils/export.ts`）：当前 `1.3` 是备份数据格式版本，只有备份格式变了才改，不跟随 App 版本号。1.3 新增 `dailyPlans`、`dailyPlanChecks`，导入时仍兼容 1.0–1.2 的旧备份。
+- **备份文件里的 version 字段**（`src/utils/export.ts`）：当前 `1.4` 是备份数据格式版本，不跟随 App 版本号。1.4 增加日程；导入 1.0–1.3 旧备份时保留现有日程。

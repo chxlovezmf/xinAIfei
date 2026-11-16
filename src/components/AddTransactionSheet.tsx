@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Delete, RotateCcw } from 'lucide-react';
 import type { Category } from '../types';
 import CategoryIcon from './CategoryIcon';
+import DatePicker from './DatePicker';
 import { getCategories, addTransaction, updateTransaction } from '../db/database';
 import { getTodayStr } from '../utils/format';
 import { getBubuCategoryArt } from '../utils/categoryArt';
@@ -268,12 +269,7 @@ export default function AddTransactionSheet({ open, onClose, onSaved, editTx }: 
                   </div>
 
                   <div className="pb-2">
-                    <input
-                      type="date"
-                      value={date}
-                      onChange={(e) => setDate(e.target.value)}
-                      className="input-field text-sm [color-scheme:light] dark:[color-scheme:dark]"
-                    />
+                    <DatePicker label="记账日期" value={date} onChange={setDate} className="w-full" />
                   </div>
 
                   <div className="pt-1 pb-6">

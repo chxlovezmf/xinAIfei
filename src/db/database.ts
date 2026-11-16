@@ -61,8 +61,9 @@ export async function importData(data: {
   budgets?: BudgetConfig[];
   dailyPlans?: DailyPlan[];
   dailyPlanChecks?: DailyPlanCheck[];
+  tasks?: Task[];
 }) {
-  await db.transaction('rw', [db.transactions, db.notes, db.categories, db.balanceSnapshots, db.budgets, db.dailyPlans, db.dailyPlanChecks], async () => {
+  await db.transaction('rw', [db.transactions, db.notes, db.categories, db.balanceSnapshots, db.budgets, db.dailyPlans, db.dailyPlanChecks, db.tasks], async () => {
     await db.transactions.clear();
     await db.notes.clear();
     await db.categories.clear();
@@ -70,6 +71,7 @@ export async function importData(data: {
     await db.budgets.clear();
     await db.dailyPlans.clear();
     await db.dailyPlanChecks.clear();
+    if (data.tasks !== undefined) await db.tasks.clear();
     if (data.transactions.length) await db.transactions.bulkAdd(data.transactions);
     if (data.notes.length) await db.notes.bulkAdd(data.notes);
     if (data.categories.length) await db.categories.bulkAdd(data.categories);
@@ -79,6 +81,7 @@ export async function importData(data: {
     if (data.budgets?.length) await db.budgets.bulkAdd(data.budgets);
     if (data.dailyPlans?.length) await db.dailyPlans.bulkAdd(data.dailyPlans);
     if (data.dailyPlanChecks?.length) await db.dailyPlanChecks.bulkAdd(data.dailyPlanChecks);
+    if (data.tasks?.length) await db.tasks.bulkAdd(data.tasks);
     // Re-init presets if no categories were imported
     const count = await db.categories.count();
     if (count === 0) await initCategories();
@@ -266,11 +269,12 @@ export async function getDailyPlans() {
   return db.dailyPlans.orderBy('order').toArray();
 }
 
-export async function addDailyPlan(input: { text: string; days: number[] }) {
+export async function addDailyPlan(input: { text: string; days: number[]; group?: string }) {
   const now = new Date().toISOString();
   const last = await db.dailyPlans.orderBy('order').last();
   return db.dailyPlans.add({
     text: input.text,
+    group: input.group?.trim() || '日常清单',
     days: normalizePlanDays(input.days),
     order: (last?.order ?? -1) + 1,
     createdAt: now,
@@ -278,7 +282,7 @@ export async function addDailyPlan(input: { text: string; days: number[] }) {
   } as DailyPlan);
 }
 
-export async function updateDailyPlan(id: number, patch: Partial<Pick<DailyPlan, 'text' | 'days' | 'order'>>) {
+export async function updateDailyPlan(id: number, patch: Partial<Pick<DailyPlan, 'text' | 'days' | 'order' | 'group'>>) {
   const next: Partial<DailyPlan> = { ...patch, updatedAt: new Date().toISOString() };
   if (patch.days) next.days = normalizePlanDays(patch.days);
   return db.dailyPlans.update(id, next);
@@ -314,6 +318,14 @@ export async function getDailyPlanChecksByDate(date: string) {
 
 export async function getAllDailyPlanChecks() {
   return db.dailyPlanChecks.toArray();
+}
+
+export async function countDailyPlanChecksBefore(date: string) {
+  return db.dailyPlanChecks.where('date').below(date).count();
+}
+
+export async function deleteDailyPlanChecksBefore(date: string) {
+  return db.dailyPlanChecks.where('date').below(date).delete();
 }
 
 export async function setDailyPlanCheck(planId: number, date: string, done: boolean) {
